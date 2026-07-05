@@ -18,7 +18,8 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/VS_Code-Extension-007ACC?logo=visual-studio-code&logoColor=white&style=flat-square" alt="VS Code Extension"/>
+  <a href="https://marketplace.visualstudio.com/items?itemName=xand0dev.traceflow-viz"><img src="https://img.shields.io/visual-studio-marketplace/v/xand0dev.traceflow-viz?style=flat-square&logo=visual-studio-code" alt="Visual Studio Marketplace"/></a>
+  <a href="https://open-vsx.org/extension/xand0dev/traceflow-viz"><img src="https://img.shields.io/open-vsx/v/xand0dev/traceflow-viz?style=flat-square" alt="Open VSX"/></a>
   <img src="https://img.shields.io/badge/Django-Backend-092E20?logo=django&logoColor=white&style=flat-square" alt="Django"/>
   <img src="https://img.shields.io/badge/React-Frontend-61DAFB?logo=react&logoColor=black&style=flat-square" alt="React"/>
   <img src="https://img.shields.io/badge/React_Native-Mobile-61DAFB?logo=react&logoColor=black&style=flat-square" alt="React Native"/>
@@ -123,23 +124,33 @@ Watch your architecture come **alive**. Drop in a lightweight middleware (Django
 - **Python** ≥ 3.10 (for the parser)
 - **Node.js** ≥ 18 (for building)
 
-### Install & Run
+### Install
+
+**Option 1: Visual Studio Marketplace (Recommended)**
+1. Open VS Code.
+2. Go to the Extensions tab (`Ctrl+Shift+X`).
+3. Search for **TraceFlow**.
+4. Click **Install**.
+
+**Option 2: Manual VSIX Install (For Antigravity IDE / VSCodium)**
+1. Download the latest `traceflow-viz-0.1.0.vsix` from the [Releases](https://github.com/xand0dev/TraceFlow/releases).
+2. Open your IDE's Extensions panel.
+3. Click `...` in the top right → **Install from VSIX...**
+4. Select the downloaded file.
+
+### Building from Source
 
 ```bash
 # 1. Clone the repo
 git clone https://github.com/xand0dev/TraceFlow.git
 cd TraceFlow
 
-# 2. Install dependencies
+# 2. Install dependencies & build
 npm install
+npm run package
 
-# 3. Build
-npm run build
-
-# 4. Launch in VS Code
-#    Press F5 → Extension Development Host opens
-#    Ctrl+Shift+P → "TraceFlow: Open Architecture Panel"
-#    Select your project root folder
+# 3. Launch in VS Code Extension Host
+#    Press F5
 ```
 
 ---
