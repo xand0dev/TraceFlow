@@ -1,0 +1,50 @@
+{
+  "name": "traceflow",
+  "displayName": "TraceFlow",
+  "description": "Visualizes project architecture and real-time HTTP telemetry for Django + React projects.",
+  "version": "0.1.0",
+  "publisher": "xand0dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xand0dev/TraceFlow.git"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "traceflow.openPanel",
+        "title": "TraceFlow: Open Architecture Panel"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "build:webview": "node esbuild.webview.mjs",
+    "build": "npm run compile && npm run build:webview",
+    "package": "npm run build && npx vsce package --no-dependencies"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "@types/ws": "^8.5.10",
+    "esbuild": "^0.20.0",
+    "typescript": "^5.3.3",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "reactflow": "^11.11.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0"
+  }
+}
