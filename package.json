@@ -3,6 +3,7 @@
   "displayName": "TraceFlow",
   "description": "Visualizes project architecture and real-time HTTP telemetry for Django + React projects.",
   "version": "0.1.0",
+  "icon": "docs/images/icon.png",
   "publisher": "xand0dev",
   "repository": {
     "type": "git",
