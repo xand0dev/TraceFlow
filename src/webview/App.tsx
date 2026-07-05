@@ -1,8 +1,9 @@
 // src/webview/App.tsx
 // ──────────────────────────────────────────────────────────────────────────────
 // TraceFlow — Architecture Visualization Webview
-// Dynamic granularity: click/zoom to drill into service blocks.
+// Dynamic granularity: click to drill into service blocks.
 // Frontends show pages/screens, Backend shows grouped endpoints + models.
+// Uses Dagre for automatic, beautiful directed graph layout.
 // ──────────────────────────────────────────────────────────────────────────────
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -13,7 +14,6 @@ import ReactFlow, {
   MiniMap,
   type Edge,
   type Node,
-  type Viewport,
   MarkerType,
   ConnectionLineType,
   useNodesState,
@@ -22,6 +22,7 @@ import ReactFlow, {
   ReactFlowProvider,
   BackgroundVariant,
 } from 'reactflow';
+import dagre from 'dagre';
 
 import 'reactflow/dist/style.css';
 import './styles.css';
@@ -64,15 +65,11 @@ const nodeTypes = {
 // Constants
 // ──────────────────────────────────────────────────────────────────────────────
 
-const W = 220;       // node width
+const W = 220;
 const SVC_H = 70;
 const EP_H = 55;
 const MODEL_H = 150;
 const PAGE_H = 55;
-const GAP = 25;
-const V_GAP = 45;
-const ZOOM_EXPAND = 0.55;
-const ZOOM_COLLAPSE = 0.35;
 
 // Group metadata
 const GROUPS: Record<string, { icon: string; label: string; color: string }> = {
@@ -103,35 +100,93 @@ function dedup(eps: ParsedEndpoint[]): ParsedEndpoint[] {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Layout builder
+// Layout builder with Dagre
 // ──────────────────────────────────────────────────────────────────────────────
 
 interface ExpandState { [id: string]: boolean; }
+
+function getLayoutedElements(nodes: Node[], edges: Edge[]) {
+  const dagreGraph = new dagre.graphlib.Graph();
+  dagreGraph.setDefaultEdgeLabel(() => ({}));
+
+  // Configure general layout
+  dagreGraph.setGraph({ 
+    rankdir: 'TB',
+    nodesep: 40,
+    edgesep: 40,
+    ranksep: 80,
+  });
+
+  // Add nodes to dagre
+  nodes.forEach((node) => {
+    let width = W;
+    let height = SVC_H;
+    
+    if (node.type === 'pageNode') height = PAGE_H;
+    if (node.type === 'endpointNode') height = EP_H;
+    if (node.type === 'modelNode') height = MODEL_H;
+    
+    // Custom width for header nodes
+    if (node.id.startsWith('group-') || node.id === 'models-header') {
+      width = W * 2;
+      height = 40;
+    }
+
+    dagreGraph.setNode(node.id, { width, height });
+  });
+
+  // Add edges to dagre
+  edges.forEach((edge) => {
+    dagreGraph.setEdge(edge.source, edge.target);
+  });
+
+  // Execute layout
+  dagre.layout(dagreGraph);
+
+  // Apply positions back to nodes
+  const layoutedNodes = nodes.map((node) => {
+    const nodeWithPosition = dagreGraph.node(node.id);
+    
+    // We are shifting the dagre node position (anchor=center center) to the top left
+    // so it matches the React Flow node anchor point (top left).
+    let width = W;
+    let height = SVC_H;
+    if (node.type === 'pageNode') height = PAGE_H;
+    if (node.type === 'endpointNode') height = EP_H;
+    if (node.type === 'modelNode') height = MODEL_H;
+    if (node.id.startsWith('group-') || node.id === 'models-header') {
+      width = W * 2;
+      height = 40;
+    }
+
+    return {
+      ...node,
+      position: {
+        x: nodeWithPosition.x - width / 2,
+        y: nodeWithPosition.y - height / 2,
+      },
+    };
+  });
+
+  return { nodes: layoutedNodes, edges };
+}
 
 function buildGraph(
   data: ArchitectureData,
   exp: ExpandState,
   toggle: (id: string) => void,
 ): { nodes: Node[]; edges: Edge[] } {
-  const nodes: Node[] = [];
-  const edges: Edge[] = [];
+  let nodes: Node[] = [];
+  let edges: Edge[] = [];
 
   const frontends = data.services.filter(s => s.type === 'frontend');
   const backends  = data.services.filter(s => s.type === 'backend');
   const databases = data.services.filter(s => s.type === 'database');
   const uniqueEps = dedup(data.endpoints);
 
-  // Compute the centre reference X
-  const centreX = 600;
-  let y = 40;
-
   // ════════════════════════════════════════════════════════════════════════
-  // LEVEL 0 — Frontends
+  // Frontends
   // ════════════════════════════════════════════════════════════════════════
-  const feWidth = frontends.length * (W + GAP * 3);
-  let fx = centreX - feWidth / 2;
-  let maxFeY = y + SVC_H + V_GAP;
-
   for (const svc of frontends) {
     const pages = svc.pages || [];
     const screens = svc.screens || [];
@@ -141,7 +196,7 @@ function buildGraph(
     nodes.push({
       id: svc.id,
       type: 'serviceNode',
-      position: { x: fx, y },
+      position: { x: 0, y: 0 },
       data: {
         label: svc.name,
         serviceType: 'frontend',
@@ -155,15 +210,10 @@ function buildGraph(
       },
     });
 
-    // ── Expanded: show pages/screens below this frontend node ──────────
     if (isExpanded && childCount > 0) {
       const items = svc.subtype === 'mobile'
         ? screens.map(s => ({ name: s.name, path: undefined as string | undefined, navType: s.navType, auth: false, component: s.component }))
         : pages.map(p => ({ name: p.name, path: p.path, navType: 'route' as string, auth: p.auth ?? false, component: p.component }));
-
-      const COLS = 3;
-      let childY = y + SVC_H + 20;
-      let col = 0;
 
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
@@ -171,7 +221,7 @@ function buildGraph(
         nodes.push({
           id: nid,
           type: 'pageNode',
-          position: { x: fx + col * (W + GAP), y: childY },
+          position: { x: 0, y: 0 },
           data: { name: item.name, path: item.path, navType: item.navType as any, auth: item.auth },
         });
         edges.push({
@@ -180,22 +230,12 @@ function buildGraph(
           type: 'smoothstep',
           style: { stroke: '#21262d', strokeWidth: 1 },
         });
-
-        col++;
-        if (col >= COLS) { col = 0; childY += PAGE_H + 15; }
       }
-      // Update max Y for next level
-      const rowsUsed = Math.ceil(items.length / COLS);
-      maxFeY = Math.max(maxFeY, y + SVC_H + 20 + rowsUsed * (PAGE_H + 15) + V_GAP);
     }
-
-    fx += W + GAP * 3;
   }
 
-  y = maxFeY;
-
   // ════════════════════════════════════════════════════════════════════════
-  // LEVEL 1 — Backend
+  // Backend
   // ════════════════════════════════════════════════════════════════════════
   for (const svc of backends) {
     const isExp = exp[svc.id] ?? false;
@@ -203,7 +243,7 @@ function buildGraph(
     nodes.push({
       id: svc.id,
       type: 'serviceNode',
-      position: { x: centreX - W / 2, y },
+      position: { x: 0, y: 0 },
       data: {
         label: svc.name,
         serviceType: 'backend',
@@ -230,9 +270,6 @@ function buildGraph(
       });
     }
 
-    y += SVC_H + V_GAP;
-
-    // ── Expanded backend: grouped endpoints + models ──────────────────
     if (isExp) {
       // Group endpoints
       const grouped = new Map<string, ParsedEndpoint[]>();
@@ -241,23 +278,19 @@ function buildGraph(
         if (!grouped.has(g)) grouped.set(g, []);
         grouped.get(g)!.push(ep);
       }
-      // Sort groups by order
       const groupOrder = ['auth', 'public', 'member', 'admin', 'owner', 'trainer', 'payments', 'exports', 'system'];
       const sortedGroups = groupOrder.filter(g => grouped.has(g));
 
-      const EP_COLS = 3;
       let epIdx = 0;
-
       for (const groupName of sortedGroups) {
         const groupEps = grouped.get(groupName)!;
         const gm = GROUPS[groupName] || { icon: '📁', label: groupName, color: '#8b949e' };
 
-        // ── Group header node ─────────────────────────────────────────
         const headerId = `group-${groupName}`;
         nodes.push({
           id: headerId,
           type: 'default',
-          position: { x: 0, y: y - 5 },
+          position: { x: 0, y: 0 },
           data: { label: `${gm.icon}  ${gm.label}  (${groupEps.length})` },
           draggable: false,
           selectable: false,
@@ -271,94 +304,91 @@ function buildGraph(
             letterSpacing: '0.08em',
             textTransform: 'uppercase' as const,
             padding: '5px 14px',
-            width: `${EP_COLS * (W + GAP) - GAP}px`,
           },
         });
-        y += 32;
+        
+        edges.push({
+          id: `${svc.id}->${headerId}`,
+          source: svc.id, target: headerId,
+          type: 'smoothstep',
+          style: { stroke: '#21262d', strokeWidth: 1 },
+        });
 
-        // ── Endpoints in this group ───────────────────────────────────
-        let col = 0;
         for (const ep of groupEps) {
           const nid = `ep-${epIdx}`;
           nodes.push({
             id: nid,
             type: 'endpointNode',
-            position: { x: col * (W + GAP), y },
+            position: { x: 0, y: 0 },
             data: { path: ep.path, methods: ep.methods, view: ep.view },
           });
           edges.push({
-            id: `${svc.id}->${nid}`,
-            source: svc.id, target: nid,
+            id: `${headerId}->${nid}`,
+            source: headerId, target: nid,
             type: 'smoothstep',
             style: { stroke: '#21262d', strokeWidth: 1 },
           });
           epIdx++;
-          col++;
-          if (col >= EP_COLS) { col = 0; y += EP_H + 12; }
         }
-        if (col > 0) y += EP_H + 12; // finish partial row
-        y += 20; // gap between groups
       }
 
-      // ── Models — right column ──────────────────────────────────────
-      const modelX = EP_COLS * (W + GAP) + GAP * 4;
-      let modelY = y - (y - (SVC_H + V_GAP * 2 + 40)); // align to top of expanded area
-      // Recalculate: place models starting from where backend children start
-      const modelStartY = nodes.find(n => n.id === svc.id)!.position.y + SVC_H + V_GAP;
-      modelY = modelStartY;
-
-      const MODEL_COLS = 2;
-      // Header
-      nodes.push({
-        id: 'models-header',
-        type: 'default',
-        position: { x: modelX, y: modelY - 5 },
-        data: { label: `🗃️  Django Models  (${data.models.length})` },
-        draggable: false,
-        selectable: false,
-        style: {
-          background: 'transparent',
-          border: '1px solid #7ee78722',
-          borderRadius: '8px',
-          color: '#7ee787',
-          fontSize: '11px',
-          fontWeight: '600',
-          letterSpacing: '0.08em',
-          textTransform: 'uppercase' as const,
-          padding: '5px 14px',
-          width: `${MODEL_COLS * (W + GAP) - GAP}px`,
-        },
-      });
-      modelY += 32;
-
-      for (let i = 0; i < data.models.length; i++) {
-        const model = data.models[i];
-        const nid = `model-${i}`;
-        const mCol = i % MODEL_COLS;
-        const mRow = Math.floor(i / MODEL_COLS);
+      // Models
+      if (data.models.length > 0) {
         nodes.push({
-          id: nid,
-          type: 'modelNode',
-          position: { x: modelX + mCol * (W + GAP), y: modelY + mRow * (MODEL_H + 12) },
-          data: { name: model.name, fields: model.fields },
+          id: 'models-header',
+          type: 'default',
+          position: { x: 0, y: 0 },
+          data: { label: `🗃️  Django Models  (${data.models.length})` },
+          draggable: false,
+          selectable: false,
+          style: {
+            background: 'transparent',
+            border: '1px solid #7ee78722',
+            borderRadius: '8px',
+            color: '#7ee787',
+            fontSize: '11px',
+            fontWeight: '600',
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase' as const,
+            padding: '5px 14px',
+          },
         });
-      }
+        
+        edges.push({
+          id: `${svc.id}->models-header`,
+          source: svc.id, target: 'models-header',
+          type: 'smoothstep',
+          style: { stroke: '#21262d', strokeWidth: 1 },
+        });
 
-      // Ensure Y advances past models too
-      const modelRows = Math.ceil(data.models.length / MODEL_COLS);
-      const modelsBottom = modelY + modelRows * (MODEL_H + 12);
-      y = Math.max(y, modelsBottom) + V_GAP;
+        for (let i = 0; i < data.models.length; i++) {
+          const model = data.models[i];
+          const nid = `model-${i}`;
+          nodes.push({
+            id: nid,
+            type: 'modelNode',
+            position: { x: 0, y: 0 },
+            data: { name: model.name, fields: model.fields },
+          });
+          edges.push({
+            id: `models-header->${nid}`,
+            source: 'models-header', target: nid,
+            type: 'smoothstep',
+            style: { stroke: '#21262d', strokeWidth: 1 },
+          });
+        }
+      }
     }
   }
 
   // ════════════════════════════════════════════════════════════════════════
-  // LEVEL 2 — Database
+  // Database
   // ════════════════════════════════════════════════════════════════════════
   for (const svc of databases) {
     nodes.push({
       id: svc.id,
       type: 'serviceNode',
-      position: { x: centreX - W / 2, y },
+      position: { x: 0, y: 0 },
       data: { label: svc.name, serviceType: 'database' },
     });
 
@@ -390,7 +420,7 @@ function buildGraph(
     }
   }
 
-  return { nodes, edges };
+  return getLayoutedElements(nodes, edges);
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -404,7 +434,6 @@ function FlowCanvas() {
   const [expandState, setExpandState] = useState<ExpandState>({});
   const archRef = useRef<ArchitectureData | null>(null);
   const telemetryTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
-  const lastZoomAction = useRef<'expand' | 'collapse' | null>(null);
   const { fitView } = useReactFlow();
 
   const toggle = useCallback((id: string) => {
@@ -418,7 +447,7 @@ function FlowCanvas() {
     setNodes(g.nodes);
     setEdges(g.edges);
     requestAnimationFrame(() => {
-      setTimeout(() => fitView({ padding: 0.12, duration: 400, maxZoom: 1.5 }), 60);
+      setTimeout(() => fitView({ padding: 0.15, duration: 600 }), 50);
     });
   }, [expandState, toggle, setNodes, setEdges, fitView]);
 
@@ -489,8 +518,8 @@ function FlowCanvas() {
         onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
         connectionLineType={ConnectionLineType.SmoothStep}
-        fitView fitViewOptions={{ padding: 0.3, maxZoom: 0.8 }}
-        minZoom={0.03} maxZoom={2.5}
+        fitView fitViewOptions={{ padding: 0.15 }}
+        minZoom={0.05} maxZoom={2.5}
         proOptions={{ hideAttribution: true }}
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#21262d" />
@@ -498,7 +527,7 @@ function FlowCanvas() {
         <MiniMap nodeColor={mmColor} maskColor="rgba(0,0,0,0.7)" position="bottom-left" pannable zoomable />
       </ReactFlow>
       <div className="tf-zoom-hint">
-        Scroll to zoom · Click service to expand
+        Click a service to expand/collapse
       </div>
     </div>
   );

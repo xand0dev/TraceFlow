@@ -33,18 +33,20 @@
     "package": "npm run build && npx vsce package --no-dependencies"
   },
   "dependencies": {
+    "dagre": "^0.8.5",
     "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@types/dagre": "^0.7.54",
     "@types/node": "^20.11.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
     "@types/vscode": "^1.85.0",
     "@types/ws": "^8.5.10",
     "esbuild": "^0.20.0",
-    "typescript": "^5.3.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "reactflow": "^11.11.0",
-    "@types/react": "^18.2.0",
-    "@types/react-dom": "^18.2.0"
+    "typescript": "^5.3.3"
   }
 }
