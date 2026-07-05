@@ -138,6 +138,18 @@ async function openTraceFlowPanel(context: vscode.ExtensionContext): Promise<voi
       progress.report({ message: 'Opening architecture panel…', increment: 30 });
       createWebviewPanel(context, architecture);
 
+      // Prompt for support (non-blocking)
+      vscode.window.showInformationMessage(
+        '💖 Enjoying TraceFlow? Consider supporting its development!',
+        'Support on Patreon', 'Sponsor on GitHub'
+      ).then(selection => {
+        if (selection === 'Support on Patreon') {
+          vscode.env.openExternal(vscode.Uri.parse('https://www.patreon.com/xand0dev'));
+        } else if (selection === 'Sponsor on GitHub') {
+          vscode.env.openExternal(vscode.Uri.parse('https://github.com/sponsors/xand0dev'));
+        }
+      });
+
       progress.report({ message: 'Done!', increment: 10 });
     }
   );

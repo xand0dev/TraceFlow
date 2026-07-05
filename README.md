@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <a href="https://www.buymeacoffee.com/xand0dev" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="36" width="130"></a>
+  <a href="https://www.patreon.com/xand0dev" target="_blank"><img src="https://img.shields.io/badge/Patreon-F96854?style=for-the-badge&logo=patreon&logoColor=white" alt="Support on Patreon" height="36"></a>
   <a href="https://github.com/sponsors/xand0dev" target="_blank"><img src="https://img.shields.io/badge/Sponsor_❤️-ea4aaa?style=for-the-badge&logo=github&logoColor=white&labelColor=0d1117" alt="GitHub Sponsor" height="36"></a>
 </p>
 
