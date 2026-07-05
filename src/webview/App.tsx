@@ -548,7 +548,6 @@ function FlowCanvas() {
         proOptions={{ hideAttribution: true }}
         nodesDraggable={false}
         nodesConnectable={false}
-        elementsSelectable={false}
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#21262d" />
         <Controls showInteractive={false} position="bottom-right" />
