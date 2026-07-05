@@ -155,6 +155,7 @@ function buildGraph(
       id: svc.id,
       type: 'serviceNode',
       position: { x: parentX, y },
+      draggable: false,
       data: {
         label: svc.name,
         serviceType: 'frontend',
@@ -189,6 +190,7 @@ function buildGraph(
           id: nid,
           type: 'pageNode',
           position: { x: startX + col * (W + GAP), y: childY },
+          draggable: false,
           data: { name: item.name, path: item.path, navType: item.navType as any, auth: item.auth },
         });
         
@@ -222,6 +224,7 @@ function buildGraph(
       id: svc.id,
       type: 'serviceNode',
       position: { x: centreX - W / 2, y },
+      draggable: false,
       data: {
         label: svc.name,
         serviceType: 'backend',
@@ -319,6 +322,7 @@ function buildGraph(
               id: nid,
               type: 'endpointNode',
               position: { x: startX + col * (W + GAP), y: rowY },
+              draggable: false,
               data: { path: ep.path, methods: ep.methods, view: ep.view },
             });
             edges.push({
@@ -380,6 +384,7 @@ function buildGraph(
             id: nid,
             type: 'modelNode',
             position: { x: modelX + mCol * (W + GAP), y: rightY + mRow * (MODEL_H + GAP) },
+            draggable: false,
             data: { name: model.name, fields: model.fields },
           });
           edges.push({
@@ -407,6 +412,7 @@ function buildGraph(
       id: svc.id,
       type: 'serviceNode',
       position: { x: centreX - W / 2, y },
+      draggable: false,
       data: { label: svc.name, serviceType: 'database' },
     });
 
@@ -540,6 +546,9 @@ function FlowCanvas() {
         fitView fitViewOptions={{ padding: 0.2 }}
         minZoom={0.05} maxZoom={2.5}
         proOptions={{ hideAttribution: true }}
+        nodesDraggable={false}
+        nodesConnectable={false}
+        elementsSelectable={false}
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#21262d" />
         <Controls showInteractive={false} position="bottom-right" />
