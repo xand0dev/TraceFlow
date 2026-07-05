@@ -509,3 +509,30 @@
   background: var(--text-muted);
 }
 
+.tf-sponsor-btn {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: rgba(234, 74, 138, 0.1);
+  color: #ea4aaa;
+  border: 1px solid rgba(234, 74, 138, 0.3);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+  transition: all 0.2s ease;
+  box-shadow: 0 0 10px rgba(234, 74, 138, 0);
+}
+
+.tf-sponsor-btn:hover {
+  background: rgba(234, 74, 138, 0.2);
+  border-color: rgba(234, 74, 138, 0.6);
+  color: #ea4aaa;
+  box-shadow: 0 0 15px rgba(234, 74, 138, 0.3);
+  transform: translateY(-1px);
+}
+
+

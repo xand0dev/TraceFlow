@@ -13,6 +13,11 @@
 </p>
 
 <p align="center">
+  <a href="https://www.buymeacoffee.com/xand0dev" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="36" width="130"></a>
+  <a href="https://github.com/sponsors/xand0dev" target="_blank"><img src="https://img.shields.io/badge/Sponsor_❤️-ea4aaa?style=for-the-badge&logo=github&logoColor=white&labelColor=0d1117" alt="GitHub Sponsor" height="36"></a>
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/VS_Code-Extension-007ACC?logo=visual-studio-code&logoColor=white&style=flat-square" alt="VS Code Extension"/>
   <img src="https://img.shields.io/badge/Django-Backend-092E20?logo=django&logoColor=white&style=flat-square" alt="Django"/>
   <img src="https://img.shields.io/badge/React-Frontend-61DAFB?logo=react&logoColor=black&style=flat-square" alt="React"/>

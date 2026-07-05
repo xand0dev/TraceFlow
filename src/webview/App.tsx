@@ -552,6 +552,9 @@ function FlowCanvas() {
       <div className="tf-zoom-hint">
         Click a service to expand/collapse
       </div>
+      <a href="https://github.com/sponsors/xand0dev" target="_blank" rel="noopener noreferrer" className="tf-sponsor-btn">
+        💖 Sponsor TraceFlow
+      </a>
     </div>
   );
 }
