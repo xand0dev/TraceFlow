@@ -443,7 +443,7 @@ def find_frontend_projects(target_dir: str) -> list[dict[str, Any]]:
     target = Path(target_dir)
 
     for dirpath, dirs, files in os.walk(target):
-        dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS and not d.startswith('.') and not d.startswith('_')]
         if "package.json" not in files:
             continue
 
@@ -574,11 +574,13 @@ def main() -> None:
     # ── Services ──────────────────────────────────────────────────────────
     services: list[dict[str, Any]] = []
 
+    fe_counter = 0
     for fp in frontend_projects:
+        fe_counter += 1
         safe_name = re.sub(r'[^a-zA-Z0-9-]', '', fp['name'])
         if fp["type"] == "web":
             services.append({
-                "id": f"frontend-web-{safe_name}",
+                "id": f"frontend-web-{safe_name}-{fe_counter}",
                 "name": f"React Web ({fp['name']})",
                 "type": "frontend",
                 "subtype": "web",
@@ -586,9 +588,10 @@ def main() -> None:
             })
         elif fp["type"] == "mobile":
             services.append({
-                "id": f"frontend-mobile-{safe_name}",
+                "id": f"frontend-mobile-{safe_name}-{fe_counter}",
                 "name": f"React Native ({fp['name']})",
                 "type": "frontend",
+
                 "subtype": "mobile",
                 "screens": fp.get("screens", []),
             })

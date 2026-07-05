@@ -16,8 +16,6 @@ import ReactFlow, {
   type Node,
   MarkerType,
   ConnectionLineType,
-  useNodesState,
-  useEdgesState,
   useReactFlow,
   ReactFlowProvider,
   BackgroundVariant,
@@ -452,8 +450,8 @@ function buildGraph(
 // ──────────────────────────────────────────────────────────────────────────────
 
 function FlowCanvas() {
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [nodes, setNodes] = useState<Node[]>([]);
+  const [edges, setEdges] = useState<Edge[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [expandState, setExpandState] = useState<ExpandState>({});
   const archRef = useRef<ArchitectureData | null>(null);
@@ -468,13 +466,12 @@ function FlowCanvas() {
   useEffect(() => {
     if (!archRef.current) return;
     const g = buildGraph(archRef.current, expandState, toggle);
-    // Directly replace nodes and edges to prevent old handles/edges from lingering
-    setNodes(g.nodes);
-    setEdges(g.edges);
+    setNodes([...g.nodes]);
+    setEdges([...g.edges]);
     requestAnimationFrame(() => {
       setTimeout(() => fitView({ padding: 0.2, duration: 500 }), 50);
     });
-  }, [expandState, toggle, setNodes, setEdges, fitView]);
+  }, [expandState, toggle, fitView]);
 
   // Telemetry animation
   const animateEdge = useCallback((source: string, target: string, status: number) => {
@@ -540,7 +537,6 @@ function FlowCanvas() {
     <div style={{ width: '100%', height: '100%' }}>
       <ReactFlow
         nodes={nodes} edges={edges}
-        onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
         connectionLineType={ConnectionLineType.SmoothStep}
         fitView fitViewOptions={{ padding: 0.2 }}
