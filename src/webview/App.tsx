@@ -3,7 +3,7 @@
 // TraceFlow — Architecture Visualization Webview
 // Dynamic granularity: click to drill into service blocks.
 // Frontends show pages/screens, Backend shows grouped endpoints + models.
-// Uses Dagre for automatic, beautiful directed graph layout.
+// Manual layout engine for optimal grid packing.
 // ──────────────────────────────────────────────────────────────────────────────
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -22,7 +22,6 @@ import ReactFlow, {
   ReactFlowProvider,
   BackgroundVariant,
 } from 'reactflow';
-import dagre from 'dagre';
 
 import 'reactflow/dist/style.css';
 import './styles.css';
@@ -65,11 +64,14 @@ const nodeTypes = {
 // Constants
 // ──────────────────────────────────────────────────────────────────────────────
 
-const W = 220;
+const W = 220;       // node width
 const SVC_H = 70;
 const EP_H = 55;
 const MODEL_H = 150;
 const PAGE_H = 55;
+const GAP = 25;      // gap between grid items
+const V_GAP = 55;    // gap between layers
+const GROUP_W = W * 3 + GAP * 2; // Fixed width for backend endpoint groups (3 cols)
 
 // Group metadata
 const GROUPS: Record<string, { icon: string; label: string; color: string }> = {
@@ -100,103 +102,59 @@ function dedup(eps: ParsedEndpoint[]): ParsedEndpoint[] {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Layout builder with Dagre
+// Layout builder
 // ──────────────────────────────────────────────────────────────────────────────
 
 interface ExpandState { [id: string]: boolean; }
-
-function getLayoutedElements(nodes: Node[], edges: Edge[]) {
-  const dagreGraph = new dagre.graphlib.Graph();
-  dagreGraph.setDefaultEdgeLabel(() => ({}));
-
-  // Configure general layout
-  dagreGraph.setGraph({ 
-    rankdir: 'TB',
-    nodesep: 40,
-    edgesep: 40,
-    ranksep: 80,
-  });
-
-  // Add nodes to dagre
-  nodes.forEach((node) => {
-    let width = W;
-    let height = SVC_H;
-    
-    if (node.type === 'pageNode') height = PAGE_H;
-    if (node.type === 'endpointNode') height = EP_H;
-    if (node.type === 'modelNode') height = MODEL_H;
-    
-    // Custom width for header nodes
-    if (node.id.startsWith('group-') || node.id === 'models-header') {
-      width = W * 2;
-      height = 40;
-    }
-
-    dagreGraph.setNode(node.id, { width, height });
-  });
-
-  // Add edges to dagre
-  edges.forEach((edge) => {
-    dagreGraph.setEdge(edge.source, edge.target);
-  });
-
-  // Execute layout
-  dagre.layout(dagreGraph);
-
-  // Apply positions back to nodes
-  const layoutedNodes = nodes.map((node) => {
-    const nodeWithPosition = dagreGraph.node(node.id);
-    
-    // We are shifting the dagre node position (anchor=center center) to the top left
-    // so it matches the React Flow node anchor point (top left).
-    let width = W;
-    let height = SVC_H;
-    if (node.type === 'pageNode') height = PAGE_H;
-    if (node.type === 'endpointNode') height = EP_H;
-    if (node.type === 'modelNode') height = MODEL_H;
-    if (node.id.startsWith('group-') || node.id === 'models-header') {
-      width = W * 2;
-      height = 40;
-    }
-
-    return {
-      ...node,
-      position: {
-        x: nodeWithPosition.x - width / 2,
-        y: nodeWithPosition.y - height / 2,
-      },
-    };
-  });
-
-  return { nodes: layoutedNodes, edges };
-}
 
 function buildGraph(
   data: ArchitectureData,
   exp: ExpandState,
   toggle: (id: string) => void,
 ): { nodes: Node[]; edges: Edge[] } {
-  let nodes: Node[] = [];
-  let edges: Edge[] = [];
+  const nodes: Node[] = [];
+  const edges: Edge[] = [];
 
   const frontends = data.services.filter(s => s.type === 'frontend');
   const backends  = data.services.filter(s => s.type === 'backend');
   const databases = data.services.filter(s => s.type === 'database');
   const uniqueEps = dedup(data.endpoints);
 
+  const centreX = 600;
+  let y = 40;
+
   // ════════════════════════════════════════════════════════════════════════
-  // Frontends
+  // LEVEL 0 — Frontends
   // ════════════════════════════════════════════════════════════════════════
-  for (const svc of frontends) {
+  const feLayouts = frontends.map(svc => {
     const pages = svc.pages || [];
     const screens = svc.screens || [];
     const childCount = pages.length + screens.length;
     const isExpanded = exp[svc.id] ?? false;
+    
+    // Max 3 columns for frontend pages
+    const cols = isExpanded && childCount > 0 ? Math.min(3, childCount) : 1;
+    const width = Math.max(W, cols * W + (cols - 1) * GAP);
+    const rows = isExpanded && childCount > 0 ? Math.ceil(childCount / 3) : 0;
+    const height = SVC_H + (isExpanded && childCount > 0 ? V_GAP + rows * PAGE_H + (rows - 1) * GAP : 0);
 
+    return { svc, isExpanded, childCount, pages, screens, width, height };
+  });
+
+  const totalFeWidth = feLayouts.reduce((sum, l) => sum + l.width, 0) + Math.max(0, feLayouts.length - 1) * (GAP * 4);
+  let fx = centreX - totalFeWidth / 2;
+  let maxFeY = y + SVC_H;
+
+  for (const layout of feLayouts) {
+    const { svc, isExpanded, childCount, pages, screens, width, height } = layout;
+    
+    // Place parent node at the center of its calculated width
+    const parentX = fx + (width / 2) - (W / 2);
+    
     nodes.push({
       id: svc.id,
       type: 'serviceNode',
-      position: { x: 0, y: 0 },
+      position: { x: parentX, y },
       data: {
         label: svc.name,
         serviceType: 'frontend',
@@ -215,35 +173,55 @@ function buildGraph(
         ? screens.map(s => ({ name: s.name, path: undefined as string | undefined, navType: s.navType, auth: false, component: s.component }))
         : pages.map(p => ({ name: p.name, path: p.path, navType: 'route' as string, auth: p.auth ?? false, component: p.component }));
 
+      const COLS = 3;
+      let childY = y + SVC_H + V_GAP;
+      let col = 0;
+
+      // Center the grid within the allocated width
+      const gridWidth = Math.min(items.length, COLS) * W + (Math.min(items.length, COLS) - 1) * GAP;
+      const startX = fx + (width / 2) - (gridWidth / 2);
+
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
         const nid = `${svc.id}-page-${i}`;
+        
         nodes.push({
           id: nid,
           type: 'pageNode',
-          position: { x: 0, y: 0 },
+          position: { x: startX + col * (W + GAP), y: childY },
           data: { name: item.name, path: item.path, navType: item.navType as any, auth: item.auth },
         });
+        
         edges.push({
           id: `${svc.id}->${nid}`,
           source: svc.id, target: nid,
           type: 'smoothstep',
           style: { stroke: '#21262d', strokeWidth: 1 },
         });
+
+        col++;
+        if (col >= COLS) { col = 0; childY += PAGE_H + GAP; }
       }
     }
+
+    maxFeY = Math.max(maxFeY, y + height);
+    fx += width + (GAP * 4);
   }
 
+  y = maxFeY + V_GAP;
+
   // ════════════════════════════════════════════════════════════════════════
-  // Backend
+  // LEVEL 1 — Backend
   // ════════════════════════════════════════════════════════════════════════
+  let maxBeY = y + SVC_H;
+  
   for (const svc of backends) {
     const isExp = exp[svc.id] ?? false;
 
     nodes.push({
       id: svc.id,
       type: 'serviceNode',
-      position: { x: 0, y: 0 },
+      position: { x: centreX - W / 2, y },
       data: {
         label: svc.name,
         serviceType: 'backend',
@@ -271,6 +249,8 @@ function buildGraph(
     }
 
     if (isExp) {
+      let beContentY = y + SVC_H + V_GAP;
+
       // Group endpoints
       const grouped = new Map<string, ParsedEndpoint[]>();
       for (const ep of uniqueEps) {
@@ -281,63 +261,89 @@ function buildGraph(
       const groupOrder = ['auth', 'public', 'member', 'admin', 'owner', 'trainer', 'payments', 'exports', 'system'];
       const sortedGroups = groupOrder.filter(g => grouped.has(g));
 
-      let epIdx = 0;
-      for (const groupName of sortedGroups) {
-        const groupEps = grouped.get(groupName)!;
-        const gm = GROUPS[groupName] || { icon: '📁', label: groupName, color: '#8b949e' };
+      const hasModels = data.models.length > 0;
+      const MODEL_COLS = 2;
+      const modelsWidth = MODEL_COLS * W + (MODEL_COLS - 1) * GAP;
+      
+      // Calculate total width to center endpoints + models
+      const epsWidth = sortedGroups.length > 0 ? GROUP_W : 0;
+      const totalWidth = epsWidth + (hasModels && epsWidth > 0 ? GAP * 4 : 0) + (hasModels ? modelsWidth : 0);
+      
+      const startX = centreX - totalWidth / 2;
+      let leftY = beContentY;
+      let rightY = beContentY;
 
-        const headerId = `group-${groupName}`;
-        nodes.push({
-          id: headerId,
-          type: 'default',
-          position: { x: 0, y: 0 },
-          data: { label: `${gm.icon}  ${gm.label}  (${groupEps.length})` },
-          draggable: false,
-          selectable: false,
-          style: {
-            background: 'transparent',
-            border: `1px solid ${gm.color}22`,
-            borderRadius: '8px',
-            color: gm.color,
-            fontSize: '11px',
-            fontWeight: '600',
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase' as const,
-            padding: '5px 14px',
-          },
-        });
-        
-        edges.push({
-          id: `${svc.id}->${headerId}`,
-          source: svc.id, target: headerId,
-          type: 'smoothstep',
-          style: { stroke: '#21262d', strokeWidth: 1 },
-        });
+      // Render Endpoints (Left Column)
+      if (epsWidth > 0) {
+        let epIdx = 0;
+        for (const groupName of sortedGroups) {
+          const groupEps = grouped.get(groupName)!;
+          const gm = GROUPS[groupName] || { icon: '📁', label: groupName, color: '#8b949e' };
 
-        for (const ep of groupEps) {
-          const nid = `ep-${epIdx}`;
+          const headerId = `group-${groupName}`;
           nodes.push({
-            id: nid,
-            type: 'endpointNode',
-            position: { x: 0, y: 0 },
-            data: { path: ep.path, methods: ep.methods, view: ep.view },
+            id: headerId,
+            type: 'default',
+            position: { x: startX, y: leftY },
+            data: { label: `${gm.icon}  ${gm.label}  (${groupEps.length})` },
+            draggable: false,
+            selectable: false,
+            style: {
+              background: 'transparent',
+              border: `1px solid ${gm.color}22`,
+              borderRadius: '8px',
+              color: gm.color,
+              fontSize: '11px',
+              fontWeight: '600',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase' as const,
+              padding: '5px 14px',
+              width: `${GROUP_W}px`,
+            },
           });
+          
           edges.push({
-            id: `${headerId}->${nid}`,
-            source: headerId, target: nid,
+            id: `${svc.id}->${headerId}`,
+            source: svc.id, target: headerId,
             type: 'smoothstep',
             style: { stroke: '#21262d', strokeWidth: 1 },
           });
-          epIdx++;
+
+          leftY += 40 + GAP;
+
+          let col = 0;
+          let rowY = leftY;
+          for (const ep of groupEps) {
+            const nid = `ep-${epIdx}`;
+            nodes.push({
+              id: nid,
+              type: 'endpointNode',
+              position: { x: startX + col * (W + GAP), y: rowY },
+              data: { path: ep.path, methods: ep.methods, view: ep.view },
+            });
+            edges.push({
+              id: `${headerId}->${nid}`,
+              source: headerId, target: nid,
+              type: 'smoothstep',
+              style: { stroke: '#21262d', strokeWidth: 1 },
+            });
+            epIdx++;
+            col++;
+            if (col >= 3) { col = 0; rowY += EP_H + GAP; }
+          }
+          if (col > 0) rowY += EP_H + GAP;
+          leftY = rowY + GAP;
         }
       }
 
-      // Models
-      if (data.models.length > 0) {
+      // Render Models (Right Column)
+      if (hasModels) {
+        const modelX = startX + epsWidth + (epsWidth > 0 ? GAP * 4 : 0);
+        
         nodes.push({
           id: 'models-header',
           type: 'default',
-          position: { x: 0, y: 0 },
+          position: { x: modelX, y: rightY },
           data: { label: `🗃️  Django Models  (${data.models.length})` },
           draggable: false,
           selectable: false,
@@ -351,6 +357,7 @@ function buildGraph(
             letterSpacing: '0.08em',
             textTransform: 'uppercase' as const,
             padding: '5px 14px',
+            width: `${modelsWidth}px`,
           },
         });
         
@@ -361,13 +368,18 @@ function buildGraph(
           style: { stroke: '#21262d', strokeWidth: 1 },
         });
 
+        rightY += 40 + GAP;
+
         for (let i = 0; i < data.models.length; i++) {
           const model = data.models[i];
           const nid = `model-${i}`;
+          const mCol = i % MODEL_COLS;
+          const mRow = Math.floor(i / MODEL_COLS);
+          
           nodes.push({
             id: nid,
             type: 'modelNode',
-            position: { x: 0, y: 0 },
+            position: { x: modelX + mCol * (W + GAP), y: rightY + mRow * (MODEL_H + GAP) },
             data: { name: model.name, fields: model.fields },
           });
           edges.push({
@@ -377,18 +389,24 @@ function buildGraph(
             style: { stroke: '#21262d', strokeWidth: 1 },
           });
         }
+        
+        rightY += Math.ceil(data.models.length / MODEL_COLS) * (MODEL_H + GAP);
       }
+
+      maxBeY = Math.max(leftY, rightY);
     }
   }
 
+  y = Math.max(y + SVC_H, maxBeY) + V_GAP;
+
   // ════════════════════════════════════════════════════════════════════════
-  // Database
+  // LEVEL 2 — Database
   // ════════════════════════════════════════════════════════════════════════
   for (const svc of databases) {
     nodes.push({
       id: svc.id,
       type: 'serviceNode',
-      position: { x: 0, y: 0 },
+      position: { x: centreX - W / 2, y },
       data: { label: svc.name, serviceType: 'database' },
     });
 
@@ -420,7 +438,7 @@ function buildGraph(
     }
   }
 
-  return getLayoutedElements(nodes, edges);
+  return { nodes, edges };
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -444,10 +462,11 @@ function FlowCanvas() {
   useEffect(() => {
     if (!archRef.current) return;
     const g = buildGraph(archRef.current, expandState, toggle);
+    // Directly replace nodes and edges to prevent old handles/edges from lingering
     setNodes(g.nodes);
     setEdges(g.edges);
     requestAnimationFrame(() => {
-      setTimeout(() => fitView({ padding: 0.15, duration: 600 }), 50);
+      setTimeout(() => fitView({ padding: 0.2, duration: 500 }), 50);
     });
   }, [expandState, toggle, setNodes, setEdges, fitView]);
 
@@ -518,7 +537,7 @@ function FlowCanvas() {
         onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
         connectionLineType={ConnectionLineType.SmoothStep}
-        fitView fitViewOptions={{ padding: 0.15 }}
+        fitView fitViewOptions={{ padding: 0.2 }}
         minZoom={0.05} maxZoom={2.5}
         proOptions={{ hideAttribution: true }}
       >
