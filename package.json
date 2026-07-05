@@ -1,5 +1,5 @@
 {
-  "name": "traceflow",
+  "name": "traceflow-viz",
   "displayName": "TraceFlow",
   "description": "Visualizes project architecture and real-time HTTP telemetry for Django + React projects.",
   "version": "0.1.0",
