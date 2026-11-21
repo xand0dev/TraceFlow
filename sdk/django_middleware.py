@@ -1,104 +1,89 @@
-// sdk/django_middleware.py
-// ──────────────────────────────────────────────────────────────────────────────
-// TraceFlow — Django Telemetry Middleware
-//
-// PURPOSE:
-//   Sends real-time HTTP request/response telemetry to the TraceFlow VS Code
-//   extension via WebSocket. This enables live edge animations on the
-//   architecture graph.
-//
-// INSTALLATION:
-//   1. pip install websocket-client
-//   2. Copy this file into your Django project (e.g., crm/middleware.py)
-//   3. Add to MIDDLEWARE in settings.py:
-//        MIDDLEWARE = [
-//            ...
-//            'crm.middleware.TelemetryMiddleware',
-//        ]
-//
-// NOTE:
-//   This middleware is for LOCAL DEVELOPMENT ONLY.
-//   Do NOT deploy it to production — it will slow down requests and
-//   fail silently if the TraceFlow extension is not running.
-// ──────────────────────────────────────────────────────────────────────────────
+"""
+TraceFlow middleware for Django: reports every request to the live map.
 
+Install
+  1. Copy this file into your project, for example as `myproject/traceflow_middleware.py`.
+  2. Add it near the top of MIDDLEWARE (development only):
+
+        if DEBUG:
+            MIDDLEWARE.insert(0, "myproject.traceflow_middleware.TraceFlowMiddleware")
+
+  3. Run `traceflow` (or connect the MCP server) and use your app.
+
+No dependencies. Requests are sent from a background thread, so a stopped
+map never slows your app down. Set TRACEFLOW_URL to change the target
+(default http://127.0.0.1:4317/api/ingest) or TRACEFLOW_DISABLED=1 to switch off.
 """
-TraceFlow Django Telemetry Middleware.
-Sends {source, target, status, method} to ws://localhost:8765 on each request.
-"""
+
+from __future__ import annotations
 
 import json
-import logging
+import os
+import queue
 import threading
+import time
+import urllib.request
 
-logger = logging.getLogger("traceflow")
+TRACEFLOW_URL = os.environ.get("TRACEFLOW_URL", "http://127.0.0.1:4317/api/ingest")
+DISABLED = os.environ.get("TRACEFLOW_DISABLED") == "1"
+SKIP_PREFIXES = ("/static/", "/media/", "/favicon.ico", "/__debug__/")
 
-# Lazy-loaded WebSocket connection (thread-local)
-_ws_local = threading.local()
+_queue: "queue.Queue[dict]" = queue.Queue(maxsize=2000)
+_started = False
+_lock = threading.Lock()
 
-TRACEFLOW_WS_URL = "ws://localhost:8765"
 
-
-def _get_ws():
-    """Get or create a thread-local WebSocket connection."""
-    ws = getattr(_ws_local, "ws", None)
-    if ws is None or not ws.connected:
+def _sender() -> None:
+    while True:
+        batch = [_queue.get()]
+        while len(batch) < 50:
+            try:
+                batch.append(_queue.get_nowait())
+            except queue.Empty:
+                break
+        body = json.dumps(batch).encode()
+        req = urllib.request.Request(TRACEFLOW_URL, data=body, headers={"Content-Type": "application/json"})
         try:
-            import websocket  # websocket-client package
-
-            ws = websocket.create_connection(
-                TRACEFLOW_WS_URL,
-                timeout=1,  # Fast fail if extension not running
-            )
-            _ws_local.ws = ws
+            urllib.request.urlopen(req, timeout=0.5).close()
         except Exception:
-            _ws_local.ws = None
-            return None
-    return ws
+            time.sleep(2)  # map not running; drop this batch and back off
 
 
-class TelemetryMiddleware:
-    """
-    Django middleware that reports each HTTP request to the TraceFlow
-    VS Code extension via WebSocket.
+def _ensure_sender() -> None:
+    global _started
+    if _started:
+        return
+    with _lock:
+        if not _started:
+            threading.Thread(target=_sender, name="traceflow", daemon=True).start()
+            _started = True
 
-    Message format:
-    {
-        "source": "backend",
-        "target": "/api/workouts/",
-        "status": 200,
-        "method": "GET"
-    }
-    """
 
+class TraceFlowMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
+        if DISABLED or request.path.startswith(SKIP_PREFIXES):
+            return self.get_response(request)
+        started = time.perf_counter()
         response = self.get_response(request)
-
-        # Fire-and-forget telemetry (non-blocking)
         try:
-            self._send_telemetry(request, response)
+            _ensure_sender()
+            _queue.put_nowait({
+                "source": "backend",
+                "target": request.path,
+                "method": request.method,
+                "status": response.status_code,
+                "duration_ms": round((time.perf_counter() - started) * 1000, 1),
+                "ts": int(time.time() * 1000),
+            })
+        except queue.Full:
+            pass
         except Exception:
-            pass  # Never break the app for telemetry
-
+            pass  # telemetry must never break the app
         return response
 
-    def _send_telemetry(self, request, response):
-        ws = _get_ws()
-        if ws is None:
-            return
 
-        message = json.dumps({
-            "source": "backend",
-            "target": request.path,
-            "status": response.status_code,
-            "method": request.method,
-        })
-
-        try:
-            ws.send(message)
-        except Exception:
-            # Connection lost — will reconnect on next request
-            _ws_local.ws = None
+# Old name, kept so existing settings keep working.
+TelemetryMiddleware = TraceFlowMiddleware

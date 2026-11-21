@@ -1,8 +1,8 @@
 {
   "name": "traceflow-viz",
   "displayName": "TraceFlow",
-  "description": "Visualizes project architecture and real-time HTTP telemetry for Django + React projects.",
-  "version": "0.1.0",
+  "description": "See your architecture and live traffic between web, API and database, right in VS Code.",
+  "version": "0.2.0",
   "icon": "docs/images/icon.png",
   "publisher": "xand0dev",
   "repository": {
@@ -27,7 +27,7 @@
     ]
   },
   "scripts": {
-    "compile": "tsc -p ./",
+    "compile": "tsc -p ./ && node -e \"require('fs').copyFileSync('src/parser.py','out/parser.py')\"",
     "watch": "tsc -watch -p ./",
     "build:webview": "node esbuild.webview.mjs",
     "build": "npm run compile && npm run build:webview",

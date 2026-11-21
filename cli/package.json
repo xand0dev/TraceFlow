@@ -1,0 +1,43 @@
+{
+  "name": "traceflow",
+  "version": "0.2.0",
+  "description": "See what your AI is building: a live architecture map, what the agent changed, and real traffic from web to API to database.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "traceflow": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xand0dev/TraceFlow.git",
+    "directory": "cli"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit -p . && tsc --noEmit -p tsconfig.web.json",
+    "start": "node dist/cli.js",
+    "test": "npm run build && node test/build-diff.mjs && node --test test/*.test.mjs && node test/mcp-smoke.mjs > /dev/null"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "ws": "^8.23.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "@types/ws": "^8.18.2",
+    "esbuild": "^0.28.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "reactflow": "^11.11.4",
+    "typescript": "^7.0.2"
+  }
+}

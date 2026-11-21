@@ -1,163 +1,75 @@
-// sdk/telemetry_client.js
-// ──────────────────────────────────────────────────────────────────────────────
-// TraceFlow — JavaScript/React Telemetry Client
+// TraceFlow client for React and React Native: reports every fetch() to the live map.
 //
-// PURPOSE:
-//   Wraps the global `fetch` function to intercept all HTTP calls and report
-//   them to the TraceFlow VS Code extension via WebSocket. This enables live
-//   edge animations on the architecture graph.
+// Install
+//   Copy this file into your app (for example src/traceflow.js) and call it once at startup,
+//   in development only:
 //
-// INSTALLATION:
-//   1. Copy this file into your React/RN project (e.g., src/utils/telemetry.js)
-//   2. Import and call `initTraceFlow()` ONCE at app startup:
+//     import { initTraceFlow } from './traceflow';
+//     if (import.meta.env?.DEV || __DEV__) initTraceFlow();
 //
-//        // In App.js or index.js:
-//        import { initTraceFlow } from './utils/telemetry';
-//        if (__DEV__) {
-//          initTraceFlow();
-//        }
+// Options
+//   initTraceFlow({ url: 'http://192.168.1.10:4317' })  // React Native on a device: use your computer's IP
 //
-// NOTE:
-//   This client is for LOCAL DEVELOPMENT ONLY.
-//   Only initialise it in __DEV__ mode. It will fail silently if the
-//   TraceFlow extension is not running.
-// ──────────────────────────────────────────────────────────────────────────────
+// No dependencies. Events are batched and sent with the original fetch, so a stopped
+// map never breaks or slows the app.
 
-const TRACEFLOW_WS_URL = 'ws://localhost:8765';
+const DEFAULT_URL = 'http://127.0.0.1:4317';
 
-let _ws = null;
-let _reconnectTimer = null;
-let _isInitialised = false;
+let installed = false;
 
-/**
- * Connect (or reconnect) to the TraceFlow WebSocket server.
- */
-function _connect() {
-  try {
-    _ws = new WebSocket(TRACEFLOW_WS_URL);
+export function initTraceFlow(options = {}) {
+  if (installed || typeof fetch !== 'function') return;
+  installed = true;
 
-    _ws.onopen = () => {
-      console.log('[TraceFlow] Connected to telemetry server');
-      if (_reconnectTimer) {
-        clearTimeout(_reconnectTimer);
-        _reconnectTimer = null;
-      }
-    };
+  const base = (options.url || DEFAULT_URL).replace(/\/$/, '');
+  const ingest = `${base}/api/ingest`;
+  const source = options.source || 'web';
+  const originalFetch = fetch.bind(globalThis);
+  let buffer = [];
+  let timer = null;
+  let backoffUntil = 0;
 
-    _ws.onclose = () => {
-      _ws = null;
-      // Reconnect after 5 seconds
-      if (!_reconnectTimer) {
-        _reconnectTimer = setTimeout(() => {
-          _reconnectTimer = null;
-          _connect();
-        }, 5000);
-      }
-    };
-
-    _ws.onerror = () => {
-      // Silently fail — extension might not be running
-      try { _ws?.close(); } catch (e) { /* noop */ }
-    };
-  } catch (e) {
-    // WebSocket constructor can throw if URL is invalid
-    _ws = null;
-  }
-}
-
-/**
- * Send a telemetry message to the TraceFlow extension.
- *
- * @param {{ source: string, target: string, status: number, method: string }} msg
- */
-function _send(msg) {
-  if (_ws && _ws.readyState === WebSocket.OPEN) {
-    try {
-      _ws.send(JSON.stringify(msg));
-    } catch (e) {
-      // Ignore send failures
+  const flush = () => {
+    timer = null;
+    if (!buffer.length || Date.now() < backoffUntil) {
+      buffer = buffer.slice(-200);
+      return;
     }
-  }
-}
-
-/**
- * Extract the pathname from a URL string or Request object.
- */
-function _extractPath(input) {
-  try {
-    if (typeof input === 'string') {
-      // Absolute URL
-      if (input.startsWith('http://') || input.startsWith('https://')) {
-        return new URL(input).pathname;
-      }
-      // Relative URL — return as-is
-      return input.split('?')[0];
-    }
-    if (input instanceof Request) {
-      return new URL(input.url).pathname;
-    }
-  } catch (e) {
-    // Fallback
-  }
-  return String(input);
-}
-
-/**
- * Initialise TraceFlow telemetry.
- * Monkey-patches `globalThis.fetch` to intercept all HTTP requests.
- * Call this ONCE at app startup, only in development mode.
- */
-export function initTraceFlow() {
-  if (_isInitialised) return;
-  _isInitialised = true;
-
-  _connect();
-
-  const _originalFetch = globalThis.fetch;
-
-  globalThis.fetch = async function traceFlowFetch(input, init) {
-    const method = (init?.method || 'GET').toUpperCase();
-    const target = _extractPath(input);
-
-    let response;
-    try {
-      response = await _originalFetch.call(this, input, init);
-    } catch (err) {
-      // Report network error as status 0
-      _send({
-        source: 'frontend',
-        target,
-        status: 0,
-        method,
-      });
-      throw err;
-    }
-
-    // Report successful (or error) response
-    _send({
-      source: 'frontend',
-      target,
-      status: response.status,
-      method,
+    const batch = buffer;
+    buffer = [];
+    originalFetch(ingest, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(batch),
+      keepalive: true,
+    }).catch(() => {
+      backoffUntil = Date.now() + 5000;
     });
-
-    return response;
   };
 
-  console.log('[TraceFlow] Telemetry initialised (fetch interceptor active)');
+  const report = (event) => {
+    buffer.push(event);
+    if (!timer) timer = setTimeout(flush, 250);
+  };
+
+  globalThis.fetch = async function tracedFetch(input, init) {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input?.url;
+    if (!url || url.startsWith(base)) return originalFetch(input, init);
+    const method = (init?.method || (typeof input === 'object' && input?.method) || 'GET').toUpperCase();
+    const started = Date.now();
+    let path = url;
+    try {
+      path = new URL(url, globalThis.location?.href || 'http://localhost').pathname;
+    } catch {}
+    try {
+      const response = await originalFetch(input, init);
+      report({ source, target: path, method, status: response.status, duration_ms: Date.now() - started, ts: started });
+      return response;
+    } catch (error) {
+      report({ source, target: path, method, status: 0, duration_ms: Date.now() - started, ts: started });
+      throw error;
+    }
+  };
 }
 
-/**
- * Stop TraceFlow telemetry and restore original fetch.
- */
-export function stopTraceFlow() {
-  if (_ws) {
-    try { _ws.close(); } catch (e) { /* noop */ }
-    _ws = null;
-  }
-  if (_reconnectTimer) {
-    clearTimeout(_reconnectTimer);
-    _reconnectTimer = null;
-  }
-  _isInitialised = false;
-}
+export default initTraceFlow;

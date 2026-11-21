@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="380" viewBox="0 0 1200 380" role="img" aria-label="TraceFlow — see what your AI is building. A live architecture map, what the agent changed, and real traffic from web to API to database.">
+<title>TraceFlow — see what your AI is building</title>
+<style>
+.s{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif}
+.m{font-family:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace}
+@keyframes breathe{0%,100%{opacity:1}50%{opacity:.45}}
+@keyframes dash{to{stroke-dashoffset:-14}}
+.breathe{animation:breathe 4s ease-in-out infinite}
+.flow{stroke-dasharray:3 4;animation:dash 1.6s linear infinite}
+@media (prefers-reduced-motion:reduce){.breathe,.flow{animation:none}}
+</style>
+<defs>
+<linearGradient id="edge" x1="0" y1="0" x2="1" y2="1">
+  <stop offset="0" stop-color="#34363B"/><stop offset=".5" stop-color="#16171A"/><stop offset="1" stop-color="#26282C"/>
+</linearGradient>
+<radialGradient id="redLight"><stop offset="0" stop-color="#E0101A" stop-opacity=".45"/><stop offset=".45" stop-color="#E0101A" stop-opacity=".1"/><stop offset="1" stop-color="#E0101A" stop-opacity="0"/></radialGradient>
+<pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#101114" stroke-width="1"/></pattern>
+</defs>
+
+<rect x="1" y="1" width="1198" height="378" rx="18" fill="#050506" stroke="url(#edge)" stroke-width="1.5"/>
+<rect x="2" y="2" width="1196" height="376" rx="17" fill="url(#grid)" opacity=".9"/>
+<circle cx="905" cy="215" r="210" fill="url(#redLight)" class="breathe"/>
+
+<g class="m" font-size="12" letter-spacing="2.4" fill="#5E636B" font-weight="700">
+  <circle cx="64" cy="70" r="4" fill="#FF2A2A" class="breathe"/>
+  <text x="78" y="74">OPEN SOURCE · MCP · LOCAL</text>
+</g>
+<text x="58" y="160" class="s" font-size="68" font-weight="800" letter-spacing="-2.6" fill="#F2F3F5">TraceFlow</text>
+<text x="60" y="210" class="s" font-size="26" font-weight="600" letter-spacing="-0.6" fill="#F2F3F5">See what your AI is building.</text>
+<text x="60" y="248" class="s" font-size="17" fill="#9A9FA7">A live map of your app, what the agent just changed,</text>
+<text x="60" y="273" class="s" font-size="17" fill="#9A9FA7">and real requests from web to API to database.</text>
+<g class="m" font-size="12" font-weight="700" letter-spacing="1.2">
+  <rect x="60" y="306" width="104" height="28" rx="6" fill="#0B0C0E" stroke="#3E4248"/><text x="112" y="324" text-anchor="middle" fill="#C9CDD3">CLAUDE CODE</text>
+  <rect x="174" y="306" width="74" height="28" rx="6" fill="#0B0C0E" stroke="#3E4248"/><text x="211" y="324" text-anchor="middle" fill="#C9CDD3">CODEX</text>
+  <rect x="258" y="306" width="78" height="28" rx="6" fill="#0B0C0E" stroke="#3E4248"/><text x="297" y="324" text-anchor="middle" fill="#C9CDD3">CURSOR</text>
+  <rect x="346" y="306" width="94" height="28" rx="6" fill="#0B0C0E" stroke="#3E4248"/><text x="393" y="324" text-anchor="middle" fill="#C9CDD3">VS CODE</text>
+</g>
+
+<!-- map -->
+<g fill="none" stroke-width="1.5">
+  <path class="flow" d="M770 120 C820 120 820 120 870 120" stroke="#2A2C31"/>
+  <path class="flow" d="M770 120 C820 120 820 250 870 250" stroke="#E0101A"/>
+  <path class="flow" d="M770 180 C820 180 820 120 870 120" stroke="#2A2C31"/>
+  <path class="flow" d="M990 120 C1030 120 1030 150 1070 150" stroke="#2A2C31"/>
+  <path class="flow" d="M990 250 C1030 250 1030 150 1070 150" stroke="#E0101A"/>
+  <path class="flow" d="M990 250 C1030 250 1030 250 1070 250" stroke="#E0101A"/>
+</g>
+<circle r="3.5" fill="#C9CDD3"><animateMotion dur="1.8s" repeatCount="indefinite" path="M770 120 C820 120 820 120 870 120"/></circle>
+<circle r="3.5" fill="#C9CDD3"><animateMotion dur="1.8s" begin="0.6s" repeatCount="indefinite" path="M770 180 C820 180 820 120 870 120"/></circle>
+<circle r="3.5" fill="#C9CDD3"><animateMotion dur="1.8s" begin="0.9s" repeatCount="indefinite" path="M990 120 C1030 120 1030 150 1070 150"/></circle>
+<circle r="3.5" fill="#FF2A2A"><animateMotion dur="1.8s" begin="0.3s" repeatCount="indefinite" path="M770 120 C820 120 820 250 870 250"/></circle>
+<circle r="3.5" fill="#FF2A2A"><animateMotion dur="1.8s" begin="1.2s" repeatCount="indefinite" path="M990 250 C1030 250 1030 250 1070 250"/></circle>
+
+<g class="m" font-size="11" font-weight="700" letter-spacing="1.2">
+  <text x="650" y="82" fill="#5E636B">WEB</text>
+  <text x="870" y="82" fill="#5E636B">API</text>
+  <text x="1070" y="82" fill="#5E636B">DATA</text>
+</g>
+<g class="m" font-size="12" font-weight="700">
+  <rect x="650" y="102" width="120" height="36" rx="7" fill="#0B0C0E" stroke="#4A4E55" stroke-width="1.5"/><text x="664" y="125" fill="#C9CDD3">/cart</text>
+  <rect x="650" y="162" width="120" height="36" rx="7" fill="#0B0C0E" stroke="#4A4E55" stroke-width="1.5"/><text x="664" y="185" fill="#C9CDD3">/orders</text>
+  <rect x="870" y="102" width="120" height="36" rx="7" fill="#0B0C0E" stroke="#4A4E55" stroke-width="1.5"/><text x="884" y="125" fill="#C9CDD3">/api/orders</text>
+  <rect x="870" y="232" width="120" height="36" rx="7" fill="#0B0C0E" stroke="#FF2A2A" stroke-width="1.5" class="breathe"/><text x="884" y="255" fill="#F2F3F5">/api/pay</text>
+  <rect x="1070" y="132" width="90" height="36" rx="7" fill="#0B0C0E" stroke="#4A4E55" stroke-width="1.5"/><text x="1084" y="155" fill="#C9CDD3">Order</text>
+  <rect x="1070" y="232" width="90" height="36" rx="7" fill="#0B0C0E" stroke="#FF2A2A" stroke-width="1.5" class="breathe"/><text x="1084" y="255" fill="#F2F3F5">Payment</text>
+  <rect x="938" y="222" width="42" height="18" rx="4" fill="#E0101A"/><text x="959" y="235" text-anchor="middle" fill="#FFFFFF" font-size="10">NEW</text>
+  <rect x="1108" y="222" width="42" height="18" rx="4" fill="#E0101A"/><text x="1129" y="235" text-anchor="middle" fill="#FFFFFF" font-size="10">NEW</text>
+</g>
+<g class="m" font-size="11" fill="#5E636B" letter-spacing=".6">
+  <text x="870" y="300">+ added by agent · 12s ago</text>
+  <text x="650" y="300">201 · 41 ms</text>
+</g>
+</svg>

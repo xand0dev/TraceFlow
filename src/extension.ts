@@ -84,7 +84,7 @@ export function deactivate() {
 
 async function openTraceFlowPanel(context: vscode.ExtensionContext): Promise<void> {
   // 1. Ask user to select the target project folder
-  const defaultUri = vscode.Uri.file('D:\\+FITGYM');
+  const defaultUri = vscode.workspace.workspaceFolders?.[0]?.uri;
   const selectedFolders = await vscode.window.showOpenDialog({
     canSelectFolders: true,
     canSelectFiles: false,

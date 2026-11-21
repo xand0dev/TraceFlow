@@ -260,7 +260,10 @@ function buildGraph(
         grouped.get(g)!.push(ep);
       }
       const groupOrder = ['auth', 'public', 'member', 'admin', 'owner', 'trainer', 'payments', 'exports', 'system'];
-      const sortedGroups = groupOrder.filter(g => grouped.has(g));
+      const sortedGroups = [
+        ...groupOrder.filter(g => grouped.has(g)),
+        ...[...grouped.keys()].filter(g => !groupOrder.includes(g)).sort(),
+      ];
 
       const hasModels = data.models.length > 0;
       const MODEL_COLS = 2;
