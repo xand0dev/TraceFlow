@@ -8,3 +8,8 @@ node_modules/**
 tsconfig.json
 esbuild.webview.mjs
 .gitignore
+cli/**
+examples/**
+sdk/**
+docs/**
+!docs/images/icon.png

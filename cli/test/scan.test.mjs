@@ -53,3 +53,21 @@ test('a new payments app shows up as added endpoint and model', async () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('DRF router mounted with include(router.urls) keeps its prefix', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'tf-'));
+  try {
+    cpSync(demo, dir, { recursive: true });
+    writeFileSync(join(dir, 'backend', 'shop', 'routers.py'),
+      'from rest_framework.routers import DefaultRouter\nfrom catalog.views import ProductViewSet\n\nrouter = DefaultRouter()\nrouter.register(r"products", ProductViewSet)\n');
+    writeFileSync(join(dir, 'backend', 'shop', 'urls.py'),
+      'from django.urls import include, path\nfrom .routers import router\n\nurlpatterns = [\n    path("api/catalog/", include(router.urls)),\n    path("api/orders/", include("orders.urls")),\n]\n');
+    const g = scan(dir);
+    const paths = g.endpoints.map((e) => e.path);
+    assert.ok(paths.includes('/api/catalog/products/'), paths.join(', '));
+    assert.ok(paths.includes('/api/catalog/products/{id}/'));
+    assert.equal(g.pages.find((p) => p.path === '/').calls[0].endpoint, 'ep:/api/catalog/products');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

@@ -58,7 +58,19 @@ async function connect(root: string, port: number, telemetryPort: number): Promi
 
 export async function runMcp(root: string, port: number, telemetryPort: number): Promise<void> {
   let source: Promise<Source> | null = null;
-  const get = () => (source ??= connect(root, port, telemetryPort));
+  const open = () => (source ??= connect(root, port, telemetryPort));
+  // If the map we attached to was closed, start over with our own engine instead of failing every call.
+  const get = async (): Promise<Source> => {
+    const src = await open();
+    try {
+      await src.state();
+      return src;
+    } catch {
+      log('lost the running map, starting our own');
+      source = null;
+      return open();
+    }
+  };
   const text = (t: string) => ({ content: [{ type: 'text' as const, text: t }] });
 
   const server = new McpServer(

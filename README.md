@@ -170,14 +170,14 @@ flowchart LR
 
 | | Detected |
 |:---|:---|
-| **Django** | `manage.py`, `ROOT_URLCONF`, nested `include()`, `path` / `re_path`, DRF routers and viewsets, `APIView` methods, `@api_view`, models, fields, `ForeignKey` / `OneToOne` / `ManyToMany` links, which models each view touches, database engine |
+| **Django** | `manage.py`, `ROOT_URLCONF` (settings file or package), nested `include()`, `path` / `re_path`, DRF routers and viewsets (registered with literal prefixes), `APIView` methods, `@api_view`, models (including inherited and custom user models), fields, `ForeignKey` / `OneToOne` / `ManyToMany` links, which models each view touches, database engine |
 | **React** | React Router (`<Route>` and route objects), pages and their local imports, `fetch` / axios / client calls to `/api/...` with method |
 | **React Native** | React Navigation stacks and tabs, expo-router `app/` screens |
 | **Stack** | Django REST, Celery, Channels, Vite, Next.js, TanStack Query, Redux, Zustand, Tailwind, TypeScript and more from `package.json` and requirements |
 
 ## VS Code extension
 
-The original extension still lives in this repo (`src/extension.ts`) and on the [Marketplace](https://marketplace.visualstudio.com/items?itemName=xand0dev.traceflow-viz) and [Open VSX](https://open-vsx.org/extension/xand0dev/traceflow-viz). It draws the static map inside the editor and now uses the new parser. Live traffic and the change view are in the `traceflow` map.
+The original extension still lives in this repo (`src/extension.ts`) and on the [Marketplace](https://marketplace.visualstudio.com/items?itemName=xand0dev.traceflow-viz) and [Open VSX](https://open-vsx.org/extension/xand0dev/traceflow-viz). It draws the static map inside the editor. The code in this repo now uses the new parser; the published 0.1.0 does not yet. Live traffic and the change view are in the `traceflow` map.
 
 ## Roadmap
 

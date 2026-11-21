@@ -112,10 +112,15 @@ def find_django_root(target: str) -> str | None:
 
 
 def find_settings(django_root: str) -> tuple[str | None, str | None]:
+    """Find ROOT_URLCONF in settings.py or in a settings/ package (base.py, dev.py, ...)."""
+    candidates: list[str] = []
     for dirpath, files in walk(django_root):
-        if "settings.py" not in files:
-            continue
-        path = os.path.join(dirpath, "settings.py")
+        in_pkg = os.path.basename(dirpath) == "settings"
+        for f in files:
+            if f == "settings.py" or (in_pkg and f.endswith(".py")):
+                candidates.append(os.path.join(dirpath, f))
+    candidates.sort(key=lambda p: (os.path.basename(p) not in ("settings.py", "base.py", "__init__.py"), len(p)))
+    for path in candidates:
         tree = parse_py(path)
         if not tree:
             continue
@@ -124,11 +129,23 @@ def find_settings(django_root: str) -> tuple[str | None, str | None]:
                 for t in node.targets:
                     if isinstance(t, ast.Name) and t.id == "ROOT_URLCONF" and isinstance(node.value, ast.Constant):
                         return path, str(node.value.value)
-    return None, None
+    return (candidates[0] if candidates else None), None
+
+
+def guess_root_urls(django_root: str) -> str | None:
+    """No ROOT_URLCONF found: use the urls.py that sits next to wsgi.py or asgi.py."""
+    for dirpath, files in walk(django_root):
+        if "urls.py" in files and ("wsgi.py" in files or "asgi.py" in files):
+            return os.path.join(dirpath, "urls.py")
+    return None
 
 
 def detect_db(settings_path: str | None) -> str:
-    src = read(settings_path) if settings_path else ""
+    src = ""
+    if settings_path:
+        folder = os.path.dirname(settings_path)
+        files = [os.path.join(folder, f) for f in os.listdir(folder) if f.endswith(".py")] if os.path.basename(folder) == "settings" else [settings_path]
+        src = "\n".join(read(f) for f in files)
     if "postgresql" in src or "postgis" in src:
         return "PostgreSQL"
     if "mysql" in src:
@@ -173,6 +190,54 @@ def _view_name(node: ast.AST) -> str | None:
     return None
 
 
+def _router_name(node: ast.AST | None) -> str | None:
+    """`router.urls` -> 'router'."""
+    if isinstance(node, ast.Attribute) and node.attr == "urls" and isinstance(node.value, ast.Name):
+        return node.value.id
+    return None
+
+
+def _imported_files(tree: ast.Module, path: str, django_root: str) -> dict[str, str]:
+    """Map names imported with `from x import name` to the file that defines them."""
+    out: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        mod = node.module or ""
+        if node.level:
+            base = os.path.dirname(path)
+            for _ in range(node.level - 1):
+                base = os.path.dirname(base)
+            cand = os.path.join(base, *mod.split(".")) if mod else base
+            file = cand + ".py" if os.path.exists(cand + ".py") else os.path.join(cand, "__init__.py")
+        else:
+            file = resolve_module(mod, django_root) or ""
+        if file and os.path.exists(file):
+            for alias in node.names:
+                out[alias.asname or alias.name] = file
+    return out
+
+
+def _register_routes(tree: ast.Module, path: str, router: str | None, prefix: str) -> list[dict[str, Any]]:
+    """DRF `router.register("prefix", ViewSet)` calls, for one router or all of them."""
+    out: list[dict[str, Any]] = []
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call) and _call_name(node) == "register" and len(node.args) >= 2):
+            continue
+        owner = node.func.value.id if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name) else None
+        if router is not None and owner != router:
+            continue
+        route = _str(node.args[0])
+        if route is None:
+            continue
+        base = normalize_path(prefix + "/" + route.lstrip("^").rstrip("$") + "/")
+        kw = {k.arg: _str(k.value) for k in node.keywords}
+        common = {"view": _view_name(node.args[1]) or "unknown", "name": kw.get("basename") or "", "file": path, "line": node.lineno}
+        out.append({"path": base, "kind": "viewset-list", **common})
+        out.append({"path": base + "{id}/", "kind": "viewset-detail", **common})
+    return out
+
+
 def parse_urls(path: str, django_root: str, prefix: str, seen: set[str]) -> list[dict[str, Any]]:
     if path in seen:
         return []
@@ -181,6 +246,23 @@ def parse_urls(path: str, django_root: str, prefix: str, seen: set[str]) -> list
     if not tree:
         return []
     out: list[dict[str, Any]] = []
+
+    # Where each DRF router is mounted: path("api/", include(router.urls)) or urlpatterns += router.urls
+    mounts: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and _call_name(node) in ("path", "re_path", "url") and len(node.args) >= 2:
+            route = _str(node.args[0])
+            target = node.args[1]
+            if route is not None and isinstance(target, ast.Call) and _call_name(target) == "include" and target.args:
+                r = _router_name(target.args[0])
+                if r:
+                    mounts[r] = prefix + route.lstrip("^").rstrip("$")
+        elif isinstance(node, (ast.Assign, ast.AugAssign)):
+            for sub in ast.walk(node.value):
+                r = _router_name(sub)
+                if r and r not in mounts:
+                    mounts[r] = prefix
+
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
@@ -198,6 +280,8 @@ def parse_urls(path: str, django_root: str, prefix: str, seen: set[str]) -> list
                 if sub:
                     out.extend(parse_urls(sub, django_root, prefix + route.lstrip("^").rstrip("$"), seen))
                 continue
+            if isinstance(target, ast.Attribute) and target.attr == "urls":
+                continue  # admin.site.urls and similar bundles, not one endpoint
             kw = {k.arg: _str(k.value) for k in node.keywords}
             out.append({
                 "path": normalize_path(prefix + route),
@@ -207,16 +291,22 @@ def parse_urls(path: str, django_root: str, prefix: str, seen: set[str]) -> list
                 "file": path,
                 "line": node.lineno,
             })
-        elif name == "register" and len(node.args) >= 2:
-            route = _str(node.args[0])
-            if route is None:
-                continue
-            base = normalize_path(prefix + route.lstrip("^").rstrip("$") + "/")
-            view = _view_name(node.args[1]) or "unknown"
-            kw = {k.arg: _str(k.value) for k in node.keywords}
-            common = {"view": view, "name": kw.get("basename") or "", "file": path, "line": node.lineno}
-            out.append({"path": base, "kind": "viewset-list", **common})
-            out.append({"path": base + "{id}/", "kind": "viewset-detail", **common})
+
+    local_routers = {
+        n.func.value.id for n in ast.walk(tree)
+        if isinstance(n, ast.Call) and _call_name(n) == "register"
+        and isinstance(n.func, ast.Attribute) and isinstance(n.func.value, ast.Name)
+    }
+    for router in local_routers:
+        out.extend(_register_routes(tree, path, router, mounts.get(router, prefix)))
+    # Routers defined in another module and mounted here
+    imports = _imported_files(tree, path, django_root)
+    for router, mount in mounts.items():
+        if router in local_routers or router not in imports or imports[router] in seen:
+            continue
+        other = parse_py(imports[router])
+        if other:
+            out.extend(_register_routes(other, imports[router], router, mount))
     return out
 
 
@@ -224,6 +314,7 @@ def collect_python_symbols(django_root: str) -> tuple[dict[str, dict], list[dict
     """Index view-like classes/functions and Django models across the backend."""
     views: dict[str, dict] = {}
     models: list[dict[str, Any]] = []
+    classes: list[tuple[ast.ClassDef, str]] = []
     for dirpath, files in walk(django_root):
         for fname in files:
             if not fname.endswith(".py"):
@@ -234,18 +325,39 @@ def collect_python_symbols(django_root: str) -> tuple[dict[str, dict], list[dict
                 continue
             for node in ast.iter_child_nodes(tree):
                 if isinstance(node, ast.ClassDef):
-                    bases = [_base_name(b) for b in node.bases]
-                    if any(b in ("Model",) for b in bases) or any(
-                        isinstance(b, ast.Attribute) and b.attr == "Model" for b in node.bases
-                    ):
-                        models.append(_model_info(node, path))
-                    else:
-                        views.setdefault(node.name, {
-                            "file": path, "line": node.lineno, "node": node, "bases": bases,
-                        })
+                    classes.append((node, path))
+                    views.setdefault(node.name, {
+                        "file": path, "line": node.lineno, "node": node, "bases": [_base_name(b) for b in node.bases],
+                    })
                 elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     views.setdefault(node.name, {"file": path, "line": node.lineno, "node": node, "bases": []})
+
+    # A class is a model if it extends models.Model, a Django base model, or another model class.
+    model_names = set(MODEL_BASES)
+    changed = True
+    while changed:
+        changed = False
+        for node, _ in classes:
+            if node.name not in model_names and any(_base_name(b) in model_names for b in node.bases):
+                model_names.add(node.name)
+                changed = True
+    for node, path in classes:
+        if node.name in model_names and node.name not in MODEL_BASES and not _is_abstract(node):
+            models.append(_model_info(node, path))
+            views.pop(node.name, None)
     return views, models
+
+
+MODEL_BASES = {"Model", "AbstractUser", "AbstractBaseUser", "PolymorphicModel", "MPTTModel", "TimeStampedModel"}
+
+
+def _is_abstract(node: ast.ClassDef) -> bool:
+    for item in node.body:
+        if isinstance(item, ast.ClassDef) and item.name == "Meta":
+            for stmt in item.body:
+                if isinstance(stmt, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "abstract" for t in stmt.targets):
+                    return isinstance(stmt.value, ast.Constant) and stmt.value.value is True
+    return False
 
 
 def _base_name(node: ast.AST) -> str:
@@ -552,10 +664,10 @@ def scan(target: str) -> dict[str, Any]:
             stack.add("Channels")
         views, models = collect_python_symbols(django_root)
         model_names = {m["name"] for m in models}
-        if urlconf:
-            root_urls = resolve_module(urlconf, django_root)
-            if root_urls:
-                endpoints = parse_urls(root_urls, django_root, "", set())
+        root_urls = resolve_module(urlconf, django_root) if urlconf else None
+        root_urls = root_urls or guess_root_urls(django_root)
+        if root_urls:
+            endpoints = parse_urls(root_urls, django_root, "", set())
         for ep in endpoints:
             view = views.get(ep["view"])
             methods, used = view_details(view, model_names)
