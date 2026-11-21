@@ -59,7 +59,9 @@ export function computeDiff(base: Graph, cur: Graph, since: number, firstSeen: M
   const removedPages = compare('page', base.pages, cur.pages, pageSig, pageLabel,
     (b, a) => {
       if (!a) return [];
-      const { added, removed } = setDiff(b?.calls.map((c) => `${c.method} ${c.endpoint.slice(3)}`) ?? [], a.calls.map((c) => `${c.method} ${c.endpoint.slice(3)}`));
+      const pathOf = (id: string) => cur.endpoints.find((e) => e.id === id)?.path ?? base.endpoints.find((e) => e.id === id)?.path ?? id.slice(3);
+      const sig = (p?: Page) => p?.calls.map((c) => `${c.method} ${pathOf(c.endpoint)}`) ?? [];
+      const { added, removed } = setDiff(sig(b), sig(a));
       return [...added.map((x) => `+ calls ${x}`), ...removed.map((x) => `− no longer calls ${x}`)];
     },
     (p) => ({ file: p.file, line: p.line }));

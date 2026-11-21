@@ -40,6 +40,17 @@ def walk(root: str):
         yield dirpath, files
 
 
+def walk_project(root: str):
+    """Like walk(), but stays inside one JS project: folders with their own package.json are other projects."""
+    for dirpath, dirs, files in os.walk(root):
+        dirs[:] = [
+            d for d in dirs
+            if d not in SKIP_DIRS and not d.startswith(".")
+            and not os.path.exists(os.path.join(dirpath, d, "package.json"))
+        ]
+        yield dirpath, files
+
+
 def rel(path: str, root: str) -> str:
     return os.path.relpath(path, root).replace(os.sep, "/")
 
@@ -480,7 +491,7 @@ def local_imports(path: str) -> list[str]:
 
 def index_components(root: str) -> dict[str, str]:
     comps: dict[str, str] = {}
-    for dirpath, files in walk(root):
+    for dirpath, files in walk_project(root):
         for f in files:
             if f.endswith(JS_EXT) and not f.endswith(".d.ts"):
                 comps.setdefault(f.rsplit(".", 1)[0], os.path.join(dirpath, f))
@@ -498,7 +509,7 @@ _WRAPPERS = {"Navigate", "Layout", "Suspense", "Outlet", "PrivateRoute", "Protec
 def parse_web_pages(root: str, comps: dict[str, str]) -> list[dict[str, Any]]:
     pages: list[dict[str, Any]] = []
     seen: set[str] = set()
-    for dirpath, files in walk(root):
+    for dirpath, files in walk_project(root):
         for f in files:
             if not f.endswith(JS_EXT):
                 continue
@@ -556,7 +567,7 @@ _SCREEN = re.compile(
 def parse_rn_screens(root: str, comps: dict[str, str]) -> list[dict[str, Any]]:
     screens: list[dict[str, Any]] = []
     seen: set[str] = set()
-    for dirpath, files in walk(root):
+    for dirpath, files in walk_project(root):
         for f in files:
             if not f.endswith(JS_EXT):
                 continue
@@ -728,7 +739,7 @@ def scan(target: str) -> dict[str, Any]:
 
         # API calls in files no page imports (hooks, stores, services) belong to the app itself
         app_calls = []
-        for dirpath, files in walk(fe["root"]):
+        for dirpath, files in walk_project(fe["root"]):
             for f in files:
                 path = os.path.join(dirpath, f)
                 if not f.endswith(JS_EXT) or path in attributed:
