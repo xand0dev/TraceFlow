@@ -74,7 +74,7 @@ export async function runMcp(root: string, port: number, telemetryPort: number):
   const text = (t: string) => ({ content: [{ type: 'text' as const, text: t }] });
 
   const server = new McpServer(
-    { name: 'traceflow', version: '0.2.0' },
+    { name: 'traceflow', version: '0.2.1' },
     {
       instructions:
         'TraceFlow knows this project\'s architecture: frontend pages, the API endpoints they call, the models those endpoints use, and live HTTP traffic. ' +

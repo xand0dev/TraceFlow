@@ -1,6 +1,6 @@
 {
   "name": "@xand0dev/traceflow",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "See what your AI is building: a live architecture map, what the agent changed, and real traffic from web to API to database.",
   "keywords": [
     "mcp",
