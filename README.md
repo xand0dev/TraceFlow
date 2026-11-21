@@ -7,17 +7,17 @@
 <img src="docs/images/readme/label-views.svg" width="100%" alt="Four things it does" />
 
 <p align="center">
-  <img src="docs/images/readme/card-map.svg" width="49%" alt="Map: pages, the endpoints they call and the models behind them, each linked to its file and line." />
+  <img src="docs/images/readme/card-map.svg" width="49%" alt="Map: any project in any language, every part with a picture and a plain description, without AI." />
   <img src="docs/images/readme/card-changes.svg" width="49%" alt="Changes: new parts glow red, changed parts get a dashed edge, everything since the session started." />
   <img src="docs/images/readme/card-live.svg" width="49%" alt="Live: real requests travel the map, matched to the code that serves them, and errors turn red." />
   <img src="docs/images/readme/card-mcp.svg" width="49%" alt="MCP: Claude Code, Codex and Cursor ask the map before they touch the code." />
 </p>
 
-<img src="docs/images/changes.png" width="100%" alt="The map with the Changes panel open: the cart page and Order model changed, a payments endpoint and Payment model are new, with file and line for each." />
+<img src="docs/images/changes.png" width="100%" alt="The map of a Django + React shop: each part drawn with its own picture, the new Payments block and edited Orders and Pages in red, HTTP lanes from the pages to the backend, and the list of changes on the right." />
 
 <img src="docs/images/readme/label-run.svg" width="100%" alt="Run it" />
 
-Inside a Django and/or React project. Needs Node 20+ and Python 3.9+, installs nothing into your project.
+Inside any project. Needs Node 20+ and Python 3.9+, installs nothing into your project.
 
 ```bash
 npx @xand0dev/traceflow
@@ -100,6 +100,7 @@ No app running yet? `npx @xand0dev/traceflow simulate` sends demo traffic to the
 <details>
 <summary>What it understands today</summary>
 
+**Any language**: blocks from folders and files, links from imports (Python, JS/TS), descriptions from `package.json`, `pyproject.toml`, docstrings and README, a picture per kind of block. No AI involved.<br/>
 **Django**: `ROOT_URLCONF` (settings file or package), nested `include()`, `path` / `re_path`, DRF routers and viewsets, `APIView` methods, `@api_view`, models including inherited and custom user models, relations, which models each view touches.<br/>
 **React**: React Router routes, pages and their imports, `fetch` / axios calls to `/api/...`.<br/>
 **React Native**: React Navigation stacks and tabs, expo-router screens.<br/>

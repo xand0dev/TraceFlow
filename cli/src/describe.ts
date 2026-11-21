@@ -16,6 +16,17 @@ export function describeArchitecture(g: Graph, focus?: string): string {
   lines.push(`Stack: ${g.stack.join(', ') || 'unknown'}`);
   lines.push('');
 
+  const mods = (g.modules ?? []).filter((m) => hit(m.name, m.path, m.desc));
+  if (mods.length) {
+    lines.push('## Blocks');
+    const names = new Map((g.modules ?? []).map((m) => [m.id, m.name]));
+    for (const m of mods) {
+      const uses = (g.moduleEdges ?? []).filter((e) => e.source === m.id).map((e) => `${names.get(e.target)}${e.kind === 'http' ? ' (http)' : ''}`);
+      lines.push(`- ${m.name} [${m.path}] ${m.files.length} files, ${m.lines} lines${m.desc ? ` — ${m.desc}` : ''}${uses.length ? `\n    uses: ${uses.join(', ')}` : ''}`);
+    }
+    lines.push('');
+  }
+
   const epById = new Map(g.endpoints.map((e) => [e.id, e]));
   for (const s of g.services.filter((x) => x.type === 'frontend')) {
     const pages = g.pages.filter((p) => p.service === s.id && hit(p.path, p.component, ...p.calls.map((c) => c.endpoint)));

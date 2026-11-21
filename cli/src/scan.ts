@@ -1,3 +1,4 @@
+// Runs the Python parser and matches request paths to endpoints in code.
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';

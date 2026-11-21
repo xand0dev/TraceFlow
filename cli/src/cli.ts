@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// The traceflow command: opens the live map, runs the MCP server, scans and simulates traffic.
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';

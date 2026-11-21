@@ -1,3 +1,4 @@
+// MCP server: gives Claude, Codex and Cursor the architecture, changes and traffic as tools.
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
@@ -74,7 +75,7 @@ export async function runMcp(root: string, port: number, telemetryPort: number):
   const text = (t: string) => ({ content: [{ type: 'text' as const, text: t }] });
 
   const server = new McpServer(
-    { name: 'traceflow', version: '0.2.1' },
+    { name: 'traceflow', version: '0.3.0' },
     {
       instructions:
         'TraceFlow knows this project\'s architecture: frontend pages, the API endpoints they call, the models those endpoints use, and live HTTP traffic. ' +

@@ -120,8 +120,8 @@ map_art = (
     + text(404, 236, "WEB  API  DB", 11, "#5E636B", "m", 700, 1.6)
 )
 card("card-map.svg", "MAP", "What is what",
-     ["Pages, the endpoints they call,", "the models behind them. Every", "box opens its file and line."],
-     map_art, "Map: pages, the endpoints they call and the models behind them, each linked to its file and line.")
+     ["Any project, any language. Every", "part gets a picture and a plain", "description, free, no AI."],
+     map_art, "Map: any project in any language, every part with a picture and a plain description, without AI.")
 
 changes_art = (
     f'<circle cx="490" cy="140" r="120" fill="url(#redLight)" class="breathe"/>'

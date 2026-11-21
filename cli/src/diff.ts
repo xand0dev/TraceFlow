@@ -1,9 +1,10 @@
-import type { Change, Diff, Endpoint, Graph, Model, Page } from './types.js';
+import type { Change, Diff, Endpoint, Graph, Model, Module, Page } from './types.js';
 import { edgeKey } from './types.js';
 
 const pageSig = (p: Page) => JSON.stringify([p.path, p.component, p.calls.map((c) => c.method + c.endpoint).sort()]);
 const endpointSig = (e: Endpoint) => JSON.stringify([e.methods.slice().sort(), e.models.slice().sort(), e.view]);
 const modelSig = (m: Model) => JSON.stringify([m.fields.slice().sort()]);
+const moduleSig = (m: Module) => JSON.stringify(m.files.map((f) => `${f.path}:${f.lines}`).sort());
 
 const pageLabel = (p: Page) => (p.path ? `${p.path} · ${p.component}` : p.name);
 const endpointLabel = (e: Endpoint) => `${e.methods.join(' ')} ${e.path}`;
@@ -88,18 +89,38 @@ export function computeDiff(base: Graph, cur: Graph, since: number, firstSeen: M
     },
     (m) => ({ file: m.file, line: m.line }));
 
+  const removedModules = compare('module', base.modules ?? [], cur.modules ?? [], moduleSig, (m) => m.name,
+    (b, a) => {
+      if (!a) return [];
+      if (!b) return [`${a.files.length} file${a.files.length === 1 ? '' : 's'} · ${a.lines} lines`, ...(a.desc ? [a.desc] : [])];
+      const before = new Map(b.files.map((f) => [f.path, f.lines]));
+      const after = new Map(a.files.map((f) => [f.path, f.lines]));
+      const out: string[] = [];
+      for (const [path, lines] of after) {
+        if (!before.has(path)) out.push(`+ ${path}`);
+        else if (before.get(path) !== lines) {
+          const d = lines - before.get(path)!;
+          out.push(`~ ${path} ${d > 0 ? '+' : ''}${d} lines`);
+        }
+      }
+      for (const path of before.keys()) if (!after.has(path)) out.push(`− ${path}`);
+      return out;
+    },
+    (m) => ({ file: m.files[0]?.path, line: 1 }));
+
   const baseEdges = new Set(base.edges.map(edgeKey));
-  const addedEdges = cur.edges.map(edgeKey).filter((k) => !baseEdges.has(k));
+  const baseModEdges = new Set((base.moduleEdges ?? []).map((e) => `${e.source}->${e.target}`));
+  const addedEdges = [...cur.edges.map(edgeKey).filter((k) => !baseEdges.has(k)), ...(cur.moduleEdges ?? []).map((e) => `${e.source}->${e.target}`).filter((k) => !baseModEdges.has(k))];
 
   changes.sort((a, b) => b.at - a.at);
   return {
     since,
     changes,
-    removed: { pages: removedPages, endpoints: removedEndpoints, models: removedModels },
+    removed: { pages: removedPages, endpoints: removedEndpoints, models: removedModels, modules: removedModules },
     addedEdges,
   };
 }
 
 export function emptyDiff(since: number): Diff {
-  return { since, changes: [], removed: { pages: [], endpoints: [], models: [] }, addedEdges: [] };
+  return { since, changes: [], removed: { pages: [], endpoints: [], models: [], modules: [] }, addedEdges: [] };
 }

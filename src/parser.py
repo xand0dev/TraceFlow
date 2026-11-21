@@ -28,6 +28,7 @@ SKIP_DIRS = frozenset({
     "dist", "build", "out", "staticfiles", "static", ".expo", "migrations",
     ".idea", ".vscode", ".vercel", ".next", ".tanstack", ".pytest_cache",
     ".mypy_cache", ".ruff_cache", "coverage", ".turbo", "Pods",
+    "examples", "example", "samples", "fixtures",
 })
 
 JS_EXT = (".js", ".jsx", ".ts", ".tsx")
@@ -807,7 +808,385 @@ def scan(target: str) -> dict[str, Any]:
         "models": models,
         "edges": edges,
         "unmatchedCalls": unmatched[:50],
+        **_with_summaries(scan_modules(target, [django_root] if django_root else []), endpoints, models, pages_out),
     }
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Universal module map: blocks from folders and files, links from imports,
+# descriptions from what people already wrote (package.json, docstrings, README).
+# Works for any project; no framework knowledge needed.
+# ──────────────────────────────────────────────────────────────────────────────
+
+CODE_EXT = {
+    ".py": "Python", ".js": "JavaScript", ".jsx": "JavaScript", ".mjs": "JavaScript", ".cjs": "JavaScript",
+    ".ts": "TypeScript", ".tsx": "TypeScript", ".go": "Go", ".rs": "Rust", ".java": "Java", ".kt": "Kotlin",
+    ".swift": "Swift", ".rb": "Ruby", ".php": "PHP", ".cs": "C#", ".c": "C", ".cpp": "C++", ".h": "C",
+    ".dart": "Dart", ".vue": "Vue", ".svelte": "Svelte", ".ex": "Elixir", ".scala": "Scala",
+}
+MODULE_SKIP = {"examples", "example", "samples", "fixtures", "test", "tests", "__tests__", "spec", "specs",
+               "e2e", "docs", "doc", "scripts", "vendor", "third_party", "assets", "public", "static", "out"}
+CONFIG_FILE = re.compile(r"(^|[./])(config|conf|setup|manage|settings|vite|webpack|rollup|esbuild|babel|jest|eslint|prettier|tailwind|postcss|tsconfig|build)\b|\.d\.ts$|\.test\.|\.spec\.|^__init__\.py$", re.I)
+SHARED_NAME = re.compile(r"^(types?|utils?|helpers?|constants?|common|shared|index|models?\.d)$", re.I)
+
+KNOWN_NAMES = {
+    "cli": "CLI", "mcp": "MCP server", "api": "API", "ui": "UI", "sdk": "SDK", "db": "Database",
+    "web": "Web UI", "webview": "Webview", "core": "Core", "server": "Server", "parser": "Parser",
+    "src": "Source", "lib": "Library", "app": "App", "backend": "Backend", "frontend": "Frontend",
+    "extension": "Extension", "describe": "Text views", "scan": "Scanner", "diff": "Diff",
+}
+
+ICON_RULES = [
+    ("editor", r"extension|vscode|editor|\bide\b|plugin\b"),
+    ("terminal", r"\bcli\b|\bbin\b|command|cmd|console|terminal"),
+    ("plug", r"mcp|integration|adapter|connector|bridge|webhook"),
+    ("core", r"core|engine|kernel|runtime"),
+    ("parser", r"pars|scan|analy|lint|\bast\b|compil|indexer"),
+    ("antenna", r"sdk|client|telemetry|tracking|middleware|monitor"),
+    ("book", r"text|describe|format|report|docs?\b|i18n|locale"),
+    ("database", r"\bdb\b|database|models?\b|schema|migration|store|repo(sitory)?|orm|data\b"),
+    ("browser", r"web|\bui\b|view|page|screen|component|frontend|map|dashboard|site|nodes?\b"),
+    ("server", r"server|api|http|route|gateway|backend|endpoint|service"),
+]
+
+
+def _module_files(root: str) -> list[str]:
+    out = []
+    for dirpath, dirs, files in os.walk(root):
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS and d not in MODULE_SKIP and not d.startswith(".")]
+        for f in files:
+            ext = os.path.splitext(f)[1]
+            if ext in CODE_EXT and not CONFIG_FILE.search(f):
+                out.append(os.path.join(dirpath, f))
+    return out
+
+
+_JS_IMPORT = re.compile(r"""(?:import\s[^'"]*?from\s*|import\s*\(\s*|require\(\s*|export\s[^'"]*?from\s*)["'](\.{1,2}/[^"']+)["']""")
+
+
+def _resolve_js(base: str, spec: str, known: set[str]) -> str | None:
+    stem = os.path.normpath(os.path.join(os.path.dirname(base), spec))
+    stem = re.sub(r"\.(js|mjs|cjs)$", "", stem)
+    for cand in [stem] + [stem + e for e in (".ts", ".tsx", ".js", ".jsx", ".mjs", ".vue", ".svelte")] + \
+                [os.path.join(stem, "index" + e) for e in (".ts", ".tsx", ".js", ".jsx")]:
+        if cand in known:
+            return cand
+    return None
+
+
+def _resolve_py(base: str, node: ast.ImportFrom | ast.Import, roots: list[str], known: set[str]) -> list[str]:
+    mods: list[str] = []
+    if isinstance(node, ast.ImportFrom):
+        if node.level:
+            d = os.path.dirname(base)
+            for _ in range(node.level - 1):
+                d = os.path.dirname(d)
+            parts = (node.module or "").split(".") if node.module else []
+            heads = [os.path.join(d, *parts)] if parts else [d]
+            heads += [os.path.join(d, *parts, a.name) for a in node.names]
+        else:
+            heads = [os.path.join(r, *(node.module or "").split(".")) for r in roots]
+            heads += [os.path.join(r, *(node.module or "").split("."), a.name) for r in roots for a in node.names]
+    else:
+        heads = [os.path.join(r, *a.name.split(".")) for r in roots for a in node.names]
+    for h in heads:
+        for cand in (h + ".py", os.path.join(h, "__init__.py")):
+            if cand in known:
+                mods.append(cand)
+    return mods
+
+
+def _imports(files: list[str], roots: list[str]) -> dict[str, set[str]]:
+    known = set(files)
+    out: dict[str, set[str]] = {f: set() for f in files}
+    for f in files:
+        ext = os.path.splitext(f)[1]
+        if ext == ".py":
+            tree = parse_py(f)
+            if not tree:
+                continue
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.Import, ast.ImportFrom)):
+                    out[f].update(t for t in _resolve_py(f, node, roots, known) if t != f)
+        elif ext in (".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".vue", ".svelte"):
+            for m in _JS_IMPORT.finditer(read(f)):
+                t = _resolve_js(f, m.group(1), known)
+                if t and t != f:
+                    out[f].add(t)
+    return out
+
+
+def _lines(path: str) -> int:
+    try:
+        with open(path, "rb") as fh:
+            return sum(1 for _ in fh)
+    except OSError:
+        return 0
+
+
+def _first_sentence(text: str) -> str:
+    text = " ".join(text.strip().split())
+    m = re.match(r"(.{12,160}?[.!?])(\s|$)", text)
+    return (m.group(1) if m else text[:140]).strip()
+
+
+def _doc_of_file(path: str) -> str:
+    src = read(path)
+    if path.endswith(".py"):
+        tree = parse_py(path)
+        doc = ast.get_docstring(tree) if tree else None
+        if doc:
+            line = next((l for l in doc.splitlines() if l.strip()), "")
+            return _first_sentence(re.sub(r"^[\w./-]+\s*[—:-]\s*", "", line))
+        return ""
+    src = re.sub(r"^#![^\n]*\n", "", src)
+    m = re.match(r"\s*(?:/\*\*?([\s\S]*?)\*/|((?:\s*//[^\n]*\n)+))", src)
+    if not m:
+        m = re.search(r"/\*\*([\s\S]*?)\*/\s*export\s+(?:default\s+)?(?:async\s+)?(?:class|function|const)", src)
+    if not m:
+        return ""
+    raw = m.group(1) or m.group(2) or ""
+    lines = [re.sub(r"^\s*(//|\*)\s?", "", l).strip() for l in raw.splitlines()]
+    lines = [l for l in lines if l and not re.fullmatch(r"[─━=\-*#]{3,}.*", l)]
+    if not lines:
+        return ""
+    lines = [l for l in lines if not re.fullmatch(r"[\w./-]+\.(t|j)sx?", l) and not l.startswith("@")]
+    if not lines:
+        return ""
+    first = re.sub(r"^[\w./-]+\.(t|j)sx?\s*[—:-]\s*", "", lines[0])
+    if len(first) < 24 and len(lines) > 1:
+        first = first + ": " + lines[1] if not first.endswith(":") else first + " " + lines[1]
+    return _first_sentence(first)
+
+
+def _doc_of_dir(path: str) -> tuple[str, str]:
+    pkg = os.path.join(path, "package.json")
+    if os.path.exists(pkg):
+        try:
+            data = json.loads(read(pkg) or "{}")
+            if data.get("description"):
+                return _first_sentence(data["description"]), "package.json"
+        except json.JSONDecodeError:
+            pass
+    pyp = os.path.join(path, "pyproject.toml")
+    if os.path.exists(pyp):
+        m = re.search(r'^description\s*=\s*"([^"]+)"', read(pyp), re.M)
+        if m:
+            return _first_sentence(m.group(1)), "pyproject.toml"
+    for name in ("README.md", "readme.md", "README"):
+        r = os.path.join(path, name)
+        if os.path.exists(r):
+            for line in read(r).splitlines():
+                l = line.strip()
+                if l and not l.startswith(("#", "<", "!", "[", "|", "`", "-", ">")):
+                    return _first_sentence(re.sub(r"[*_`]", "", l)), name
+    return "", ""
+
+
+def _humanize(name: str) -> str:
+    key = name.lower()
+    if key in KNOWN_NAMES:
+        return KNOWN_NAMES[key]
+    words = re.sub(r"[_\-.]+", " ", re.sub(r"([a-z])([A-Z])", r"\1 \2", name)).split()
+    return " ".join(w if w.isupper() else w.capitalize() for w in words) or name
+
+
+def _icon(name: str, path: str, files: list[str]) -> str:
+    leaf = os.path.splitext(os.path.basename(path.rstrip("/")))[0]
+    hay = f"{name} {leaf}".lower()
+    for kind, pat in ICON_RULES:
+        if re.search(pat, hay):
+            return kind
+    stems = {os.path.splitext(os.path.basename(f))[0].lower() for f in files}
+    if stems & {"views", "urls", "routes", "controllers", "handlers", "api", "viewsets", "serializers"}:
+        return "server"
+    if stems & {"models", "schema", "schemas", "entities", "tables"}:
+        return "database"
+    exts = {os.path.splitext(f)[1] for f in files}
+    if exts & {".tsx", ".jsx", ".vue", ".svelte"}:
+        return "browser"
+    return "cube"
+
+
+def scan_modules(target: str, extra_roots: list[str] | None = None) -> dict[str, Any]:
+    files = _module_files(target)
+    if not files:
+        return {"modules": [], "moduleEdges": []}
+    imports = _imports(files, [target] + [r for r in (extra_roots or []) if r and r != target])
+    importers: dict[str, set[str]] = {f: set() for f in files}
+    for a, ts in imports.items():
+        for t in ts:
+            importers[t].add(a)
+
+    by_dir: dict[str, list[str]] = {}
+    for f in files:
+        by_dir.setdefault(os.path.dirname(f), []).append(f)
+
+    # Fold folders with a single file into their parent so blocks have some weight.
+    changed = True
+    while changed:
+        changed = False
+        for d in sorted(by_dir, key=len, reverse=True):
+            parent = os.path.dirname(d)
+            if d != target and len(by_dir[d]) < 2 and parent.startswith(target) and parent != d:
+                by_dir.setdefault(parent, []).extend(by_dir.pop(d))
+                changed = True
+                break
+
+    units: dict[str, list[str]] = {}
+    hidden: list[str] = []
+    for d, fs in by_dir.items():
+        big = [f for f in fs if _lines(f) >= 80]
+        if 3 <= len(fs) <= 16 and len(big) >= 3:
+            # A flat folder of real files: one block per file, small helpers fold into their only user.
+            local = set(fs)
+            owner = {f: f for f in fs}
+            for f in fs:
+                users = importers[f] & local
+                stem = os.path.splitext(os.path.basename(f))[0]
+                if len(users) >= 3 and SHARED_NAME.match(stem):
+                    owner[f] = None
+                elif len(users) == 1 and f not in big:
+                    owner[f] = next(iter(users))
+                elif len(users) == 1 and len(importers[f]) == 1 and _lines(f) < 140:
+                    owner[f] = next(iter(users))
+            def top(f):
+                seen = set()
+                while owner.get(f) and owner[f] != f and f not in seen:
+                    seen.add(f)
+                    f = owner[f]
+                return owner.get(f)
+            for f in fs:
+                o = top(f)
+                if o is None:
+                    hidden.append(f)
+                else:
+                    units.setdefault(o, []).append(f)
+        else:
+            units.setdefault(d, []).extend(fs)
+
+    if len(units) > 18:
+        # Too many blocks: go back to one block per top-level folder.
+        units = {}
+        for f in files:
+            relp = os.path.relpath(f, target).split(os.sep)
+            key = os.path.join(target, relp[0]) if len(relp) > 1 else target
+            units.setdefault(key, []).append(f)
+        hidden = []
+
+    file_to_unit = {f: u for u, fs in units.items() for f in fs}
+    modules: list[dict[str, Any]] = []
+    for u, fs in units.items():
+        is_file = os.path.isfile(u)
+        relu = rel(u, target) if u != target else "."
+        if is_file:
+            stem = os.path.splitext(os.path.basename(u))[0]
+            if stem.lower() in ("app", "index", "main", "mod", "lib", "__main__"):
+                stem = os.path.basename(os.path.dirname(u))
+            name = _humanize(stem)
+            desc = _doc_of_file(u)
+            source = rel(u, target) if desc else ""
+        else:
+            base = os.path.basename(u) if u != target else os.path.basename(target)
+            desc, source = _doc_of_dir(u)
+            name = _humanize(base)
+            # a src/ or lib/ folder is named after its package
+            if base.lower() in ("src", "lib", "app", ".") or u == target:
+                parent = u if (u == target or os.path.exists(os.path.join(u, "package.json"))) else os.path.dirname(u)
+                pdesc, psrc = _doc_of_dir(parent)
+                try:
+                    pkg = json.loads(read(os.path.join(parent, "package.json")) or "{}")
+                    pname = pkg.get("displayName") or pkg.get("name") or os.path.basename(parent)
+                except json.JSONDecodeError:
+                    pname = os.path.basename(parent)
+                name = _humanize(str(pname).split("/")[-1])
+                desc, source = (desc, source) if desc else (pdesc, psrc)
+            if not desc:
+                main = max(fs, key=_lines)
+                desc = _doc_of_file(main)
+                source = rel(main, target) if desc else ""
+        langs: dict[str, int] = {}
+        for f in fs:
+            langs[CODE_EXT[os.path.splitext(f)[1]]] = langs.get(CODE_EXT[os.path.splitext(f)[1]], 0) + 1
+        modules.append({
+            "id": "mod:" + relu,
+            "name": name,
+            "desc": desc,
+            "descSource": source,
+            "kind": _icon(name, relu, fs),
+            "path": relu,
+            "language": max(langs, key=langs.get),
+            "files": sorted(({"path": rel(f, target), "lines": _lines(f)} for f in fs), key=lambda x: -x["lines"]),
+            "lines": sum(_lines(f) for f in fs),
+        })
+
+    # Two blocks with the same name get their folder added.
+    seen_names: dict[str, int] = {}
+    for m in modules:
+        seen_names[m["name"]] = seen_names.get(m["name"], 0) + 1
+    for m in modules:
+        if seen_names[m["name"]] > 1:
+            m["name"] = f"{m['name']} ({os.path.dirname(m['path']) or m['path']})"
+
+    weights: dict[tuple[str, str], int] = {}
+    unit_id = {u: "mod:" + (rel(u, target) if u != target else ".") for u in units}
+    for a, ts in imports.items():
+        ua = file_to_unit.get(a)
+        for t in ts:
+            ub = file_to_unit.get(t)
+            if ua and ub and ua != ub:
+                key = (unit_id[ua], unit_id[ub])
+                weights[key] = weights.get(key, 0) + 1
+    edges = [{"source": a, "target": b, "weight": w} for (a, b), w in weights.items()]
+    modules.sort(key=lambda m: m["path"])
+    return {"modules": modules, "moduleEdges": edges, "sharedFiles": [rel(f, target) for f in hidden]}
+
+
+def _with_summaries(mods: dict[str, Any], endpoints, models, pages) -> dict[str, Any]:
+    """Blocks with no written description get a factual one from the code: endpoints, models, pages."""
+    for m in mods["modules"]:
+        files = {f["path"] for f in m["files"]}
+        eps = [e for e in endpoints if e.get("viewFile") in files or e.get("file") in files]
+        mds = [x for x in models if x["file"] in files]
+        pgs = [p for p in pages if p["file"] in files]
+        m["counts"] = {"endpoints": len(eps), "models": len(mds), "pages": len(pgs)}
+        m["endpointIds"] = [e["id"] for e in eps]
+        m["modelIds"] = [x["id"] for x in mds]
+        m["pageIds"] = [p["id"] for p in pgs]
+    # HTTP links: a block whose pages call an endpoint served by another block
+    owner_ep = {eid: m["id"] for m in mods["modules"] for eid in m["endpointIds"]}
+    owner_pg = {pid: m["id"] for m in mods["modules"] for pid in m["pageIds"]}
+    http: dict[tuple[str, str], int] = {}
+    for pg in pages:
+        a = owner_pg.get(pg["id"])
+        for c in pg.get("calls", []):
+            b = owner_ep.get(c["endpoint"])
+            if a and b and a != b:
+                http[(a, b)] = http.get((a, b), 0) + 1
+    mods["moduleEdges"] = [e for e in mods["moduleEdges"] if (e["source"], e["target"]) not in http]
+    mods["moduleEdges"] += [{"source": a, "target": b, "weight": w, "kind": "http"} for (a, b), w in http.items()]
+    for m in mods["modules"]:
+        if m["desc"]:
+            continue
+        files = {f["path"] for f in m["files"]}
+        eps = [e for e in endpoints if e["id"] in m["endpointIds"]]
+        mds = [x for x in models if x["id"] in m["modelIds"]]
+        pgs = [p for p in pages if p["id"] in m["pageIds"]]
+        bits = []
+        if eps:
+            bits.append(f"{len(eps)} endpoint{'s' if len(eps) != 1 else ''}")
+        if mds:
+            names = ", ".join(x["name"] for x in mds[:3])
+            bits.append(f"{len(mds)} model{'s' if len(mds) != 1 else ''}: {names}")
+        if pgs:
+            names = ", ".join((p.get("path") or p["name"]) for p in pgs[:3])
+            bits.append(f"{len(pgs)} page{'s' if len(pgs) != 1 else ''}: {names}")
+        if bits:
+            m["desc"] = " · ".join(bits)
+            m["descSource"] = "code"
+            if m["kind"] == "cube":
+                m["kind"] = "server" if eps else "database" if mds else "browser"
+    return mods
 
 
 def _dedupe_links(links: list[dict[str, Any]]) -> list[dict[str, Any]]:

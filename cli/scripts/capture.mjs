@@ -100,11 +100,13 @@ for (let i = 0; i < 150; i++) {
   await sleep(70);
 }
 
+await evaluate(`[...document.querySelectorAll('.tabs button')].find(b => b.textContent.startsWith('Changes'))?.click()`);
+await sleep(700);
 await shot(join(out, 'changes.png'), 2);
 await evaluate(`[...document.querySelectorAll('.tabs button')].find(b => b.textContent.startsWith('Live'))?.click()`);
-await sleep(600);
+await sleep(700);
 await shot(join(out, 'live.png'), 2);
-await evaluate(`(() => { const el = [...document.querySelectorAll('.card')].find(c => c.textContent.includes('/api/payments/checkout/')); el?.click(); })()`);
+await evaluate(`(() => { const el = [...document.querySelectorAll('.node')].find(n => (n.getAttribute('aria-label') || '').startsWith('Payments')); el?.dispatchEvent(new MouseEvent('click', { bubbles: true })); })()`);
 await sleep(900);
 await shot(join(out, 'details.png'), 2);
 

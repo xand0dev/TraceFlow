@@ -2,7 +2,7 @@
   <img src="https://raw.githubusercontent.com/xand0dev/TraceFlow/main/docs/images/hero.svg" width="100%" alt="TraceFlow — see what your AI is building" />
 </p>
 
-You build with Claude Code, Codex or Cursor. The agent writes fifty files and says "done". TraceFlow shows what it actually built: a live map of your app (pages → endpoints → models → database), everything the agent added or changed lit up as files are saved, and real requests moving through it. The same map is available to the agent over MCP.
+You build with Claude Code, Codex or Cursor. The agent writes fifty files and says "done". TraceFlow shows what it actually built: a live map of any project where every part has its own picture and a plain description, everything the agent added or changed lit up in red as files are saved, and real requests moving through it. Django and React get endpoint-level detail. The same map is available to the agent over MCP.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/xand0dev/TraceFlow/main/docs/images/demo.gif" width="100%" alt="An agent adds payments: new parts light up red and requests flow through the map" />
@@ -10,7 +10,7 @@ You build with Claude Code, Codex or Cursor. The agent writes fifty files and sa
 
 ## Run it
 
-Needs Node 20+ and Python 3.9+. Inside a Django and/or React project:
+Needs Node 20+ and Python 3.9+. Inside any project:
 
 ```bash
 npx @xand0dev/traceflow

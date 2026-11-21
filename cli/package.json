@@ -1,6 +1,6 @@
 {
   "name": "@xand0dev/traceflow",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "See what your AI is building: a live architecture map, what the agent changed, and real traffic from web to API to database.",
   "keywords": [
     "mcp",
@@ -55,7 +55,6 @@
     "esbuild": "^0.28.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "reactflow": "^11.11.4",
     "typescript": "^7.0.2",
     "ws": "^8.23.0",
     "zod": "^4.6.7"

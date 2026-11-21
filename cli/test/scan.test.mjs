@@ -27,6 +27,11 @@ test('demo shop: pages, endpoints, models and links', () => {
   assert.equal(product.calls[0].endpoint, 'ep:/api/catalog/products/*');
   assert.equal(g.unmatchedCalls.length, 0);
   assert.ok(g.edges.some((e) => e.source === 'model:OrderItem' && e.target === 'model:Order'));
+  // universal block map with HTTP links from the pages to the Django apps
+  const ordersBlock = g.modules.find((m) => m.path === 'backend/orders');
+  assert.equal(ordersBlock.kind, 'server');
+  assert.match(ordersBlock.desc, /2 endpoints · 2 models: Order, OrderItem/);
+  assert.ok(g.moduleEdges.some((e) => e.kind === 'http' && e.source === 'mod:web/src/pages' && e.target === 'mod:backend/orders'));
 });
 
 test('a new payments app shows up as added endpoint and model', async () => {
@@ -46,8 +51,10 @@ test('a new payments app shows up as added endpoint and model', async () => {
     writeFileSync(urls, src.replace(']', '    path("api/payments/", include("payments.urls")),\n]'));
     const after = scan(dir);
     const diff = computeDiff(before, after, 0, new Map());
-    const kinds = diff.changes.map((c) => `${c.kind}:${c.id}`).sort();
+    const kinds = diff.changes.filter((c) => c.entity !== 'module').map((c) => `${c.kind}:${c.id}`).sort();
     assert.deepEqual(kinds, ['added:ep:/api/payments/pay', 'added:model:Payment']);
+    const blocks = diff.changes.filter((c) => c.entity === 'module').map((c) => `${c.kind}:${c.id}`);
+    assert.ok(blocks.includes('added:mod:backend/payments'), blocks.join(', '));
     assert.deepEqual(diff.changes.find((c) => c.id === 'ep:/api/payments/pay').detail, ['view PayView', 'uses Payment']);
   } finally {
     rmSync(dir, { recursive: true, force: true });

@@ -53,6 +53,36 @@ export interface Service {
   calls?: CallLink[];
 }
 
+export interface ModuleFile {
+  path: string;
+  lines: number;
+}
+
+/** A block on the system map: a folder or a file, found for any language. */
+export interface Module {
+  id: string;
+  name: string;
+  desc: string;
+  /** Where the description came from: package.json, a docstring, README, or "code" for a generated summary. */
+  descSource: string;
+  kind: 'terminal' | 'editor' | 'plug' | 'core' | 'parser' | 'antenna' | 'book' | 'database' | 'browser' | 'server' | 'cube';
+  path: string;
+  language: string;
+  files: ModuleFile[];
+  lines: number;
+  counts?: { endpoints: number; models: number; pages: number };
+  endpointIds?: string[];
+  modelIds?: string[];
+  pageIds?: string[];
+}
+
+export interface ModuleEdge {
+  source: string;
+  target: string;
+  weight: number;
+  kind?: 'http';
+}
+
 export interface Edge {
   source: string;
   target: string;
@@ -72,6 +102,9 @@ export interface Graph {
   models: Model[];
   edges: Edge[];
   unmatchedCalls: { path: string; method: string; file: string; line: number; from: string }[];
+  modules: Module[];
+  moduleEdges: ModuleEdge[];
+  sharedFiles: string[];
 }
 
 export type ChangeKind = 'added' | 'removed' | 'changed';
@@ -79,7 +112,7 @@ export type ChangeKind = 'added' | 'removed' | 'changed';
 export interface Change {
   id: string;
   kind: ChangeKind;
-  entity: 'page' | 'endpoint' | 'model' | 'service';
+  entity: 'page' | 'endpoint' | 'model' | 'service' | 'module';
   label: string;
   detail: string[];
   file?: string;
@@ -91,7 +124,7 @@ export interface Diff {
   since: number;
   changes: Change[];
   /** Entities that existed at the baseline and are gone now, so the map can draw them as ghosts. */
-  removed: { pages: Page[]; endpoints: Endpoint[]; models: Model[] };
+  removed: { pages: Page[]; endpoints: Endpoint[]; models: Model[]; modules: Module[] };
   addedEdges: string[];
 }
 
