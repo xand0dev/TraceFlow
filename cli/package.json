@@ -1,5 +1,5 @@
 {
-  "name": "traceflow",
+  "name": "@xand0dev/traceflow",
   "version": "0.2.0",
   "description": "See what your AI is building: a live architecture map, what the agent changed, and real traffic from web to API to database.",
   "keywords": [
@@ -24,7 +24,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/xand0dev/TraceFlow.git",
+    "url": "git+https://github.com/xand0dev/TraceFlow.git",
     "directory": "cli"
   },
   "type": "module",
@@ -59,5 +59,8 @@
     "typescript": "^7.0.2",
     "ws": "^8.23.0",
     "zod": "^4.6.7"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

@@ -13,7 +13,7 @@ You build with Claude Code, Codex or Cursor. The agent writes fifty files and sa
 Needs Node 20+ and Python 3.9+. Inside a Django and/or React project:
 
 ```bash
-npx traceflow
+npx @xand0dev/traceflow
 ```
 
 The map opens at `http://localhost:4317` and follows your saves.
@@ -23,7 +23,7 @@ The map opens at `http://localhost:4317` and follows your saves.
 Claude Code, inside your project:
 
 ```bash
-claude mcp add traceflow -- npx -y traceflow mcp
+claude mcp add traceflow -- npx -y @xand0dev/traceflow mcp
 ```
 
 Codex, in `~/.codex/config.toml`:
@@ -31,18 +31,20 @@ Codex, in `~/.codex/config.toml`:
 ```toml
 [mcp_servers.traceflow]
 command = "npx"
-args = ["-y", "traceflow", "mcp", "/absolute/path/to/your/project"]
+args = ["-y", "@xand0dev/traceflow", "mcp", "/absolute/path/to/your/project"]
 ```
 
 Claude Desktop or Cursor:
 
 ```json
-{ "mcpServers": { "traceflow": { "command": "npx", "args": ["-y", "traceflow", "mcp", "/absolute/path/to/your/project"] } } }
+{ "mcpServers": { "traceflow": { "command": "npx", "args": ["-y", "@xand0dev/traceflow", "mcp", "/absolute/path/to/your/project"] } } }
 ```
 
 Tools: `architecture`, `trace`, `changes`, `traffic`, `open_map`, `reset_changes`. The MCP server also serves the map.
 
 ## Commands
+
+Install globally with `npm i -g @xand0dev/traceflow` to get the `traceflow` command.
 
 ```
 traceflow [dir]            Open the live map (default: current folder)
