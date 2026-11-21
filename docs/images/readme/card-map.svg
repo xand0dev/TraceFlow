@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="300" viewBox="0 0 600 300" role="img" aria-label="Map: pages, the endpoints they call and the models behind them, each linked to its file and line.">
+<title>Map: pages, the endpoints they call and the models behind them, each linked to its file and line.</title>
+<style>
+.s{font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif} .m{font-family:ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace}
+@keyframes breathe{0%,100%{opacity:1}50%{opacity:.45}}
+@keyframes dash{to{stroke-dashoffset:-14}}
+.breathe{animation:breathe 4s ease-in-out infinite}
+.flow{stroke-dasharray:3 4;animation:dash 1.6s linear infinite}
+@media (prefers-reduced-motion:reduce){.breathe,.flow{animation:none}}
+.compact{display:none} @media (max-width:300px){.full{display:none} .compact{display:inline}}</style>
+<defs>
+<linearGradient id="edge" x1="0" y1="0" x2="1" y2="1">
+  <stop offset="0" stop-color="#34363B"/><stop offset=".5" stop-color="#16171A"/><stop offset="1" stop-color="#26282C"/>
+</linearGradient>
+<filter id="glow" x="-100%" y="-100%" width="300%" height="300%">
+  <feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+</filter>
+<radialGradient id="redLight"><stop offset="0" stop-color="#E0101A" stop-opacity=".5"/>
+  <stop offset=".4" stop-color="#E0101A" stop-opacity=".12"/><stop offset="1" stop-color="#E0101A" stop-opacity="0"/></radialGradient>
+<linearGradient id="hair" x1="0" x2="1"><stop offset="0" stop-color="#8B8F96" stop-opacity=".45"/><stop offset="1" stop-color="#8B8F96" stop-opacity="0"/></linearGradient>
+</defs>
+<rect x="1" y="1" width="598" height="298" rx="16" fill="#050506" stroke="url(#edge)" stroke-width="1.5"/>
+<g class="full">
+<text x="36" y="52" class="m" font-size="12" fill="#5E636B" font-weight="700" letter-spacing="2.4" xml:space="preserve">MAP</text>
+<text x="34" y="104" class="s" font-size="34" fill="#F2F3F5" font-weight="800" letter-spacing="-1.1" xml:space="preserve">What is what</text>
+<text x="36" y="146" class="s" font-size="18" fill="#9A9FA7" xml:space="preserve">Pages, the endpoints they call,</text>
+<text x="36" y="172" class="s" font-size="18" fill="#9A9FA7" xml:space="preserve">the models behind them. Every</text>
+<text x="36" y="198" class="s" font-size="18" fill="#9A9FA7" xml:space="preserve">box opens its file and line.</text>
+<g fill="none" stroke-width="1.5"><path class="flow" d="M462 92 C478 92 478 92 494 92" stroke="#4A4E55"/><path class="flow" d="M462 92 C478 92 478 140 494 140" stroke="#4A4E55"/><path class="flow" d="M462 188 C478 188 478 140 494 140" stroke="#4A4E55"/><path class="flow" d="M552 92 C562 92 562 116 572 116" stroke="#4A4E55"/><path class="flow" d="M552 140 C562 140 562 116 572 116" stroke="#4A4E55"/><path class="flow" d="M552 140 C562 140 562 196 572 196" stroke="#4A4E55"/></g><rect x="404" y="79" width="58" height="26" rx="5" fill="#0B0C0E" stroke="#4A4E55" stroke-width="1.3"/><rect x="404" y="127" width="58" height="26" rx="5" fill="#0B0C0E" stroke="#4A4E55" stroke-width="1.3"/><rect x="404" y="175" width="58" height="26" rx="5" fill="#0B0C0E" stroke="#4A4E55" stroke-width="1.3"/><rect x="494" y="79" width="58" height="26" rx="5" fill="#0B0C0E" stroke="#4A4E55" stroke-width="1.3"/><rect x="494" y="127" width="58" height="26" rx="5" fill="#0B0C0E" stroke="#4A4E55" stroke-width="1.3"/><rect x="572" y="103" width="14" height="26" rx="4" fill="#0B0C0E" stroke="#4A4E55" stroke-width="1.3"/><rect x="572" y="183" width="14" height="26" rx="4" fill="#0B0C0E" stroke="#4A4E55" stroke-width="1.3"/><text x="404" y="236" class="m" font-size="11" fill="#5E636B" font-weight="700" letter-spacing="1.6" xml:space="preserve">WEB  API  DB</text>
+</g>
+<g class="compact"><text x="36" y="120" class="s" font-size="64" fill="#F2F3F5" font-weight="800" letter-spacing="-2" xml:space="preserve">What is what</text></g>
+</svg>

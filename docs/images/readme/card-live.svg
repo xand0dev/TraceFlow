@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="300" viewBox="0 0 600 300" role="img" aria-label="Live: real requests travel the map, matched to the code that serves them, and errors turn red.">
+<title>Live: real requests travel the map, matched to the code that serves them, and errors turn red.</title>
+<style>
+.s{font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif} .m{font-family:ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace}
+@keyframes breathe{0%,100%{opacity:1}50%{opacity:.45}}
+@keyframes dash{to{stroke-dashoffset:-14}}
+.breathe{animation:breathe 4s ease-in-out infinite}
+.flow{stroke-dasharray:3 4;animation:dash 1.6s linear infinite}
+@media (prefers-reduced-motion:reduce){.breathe,.flow{animation:none}}
+.compact{display:none} @media (max-width:300px){.full{display:none} .compact{display:inline}}</style>
+<defs>
+<linearGradient id="edge" x1="0" y1="0" x2="1" y2="1">
+  <stop offset="0" stop-color="#34363B"/><stop offset=".5" stop-color="#16171A"/><stop offset="1" stop-color="#26282C"/>
+</linearGradient>
+<filter id="glow" x="-100%" y="-100%" width="300%" height="300%">
+  <feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+</filter>
+<radialGradient id="redLight"><stop offset="0" stop-color="#E0101A" stop-opacity=".5"/>
+  <stop offset=".4" stop-color="#E0101A" stop-opacity=".12"/><stop offset="1" stop-color="#E0101A" stop-opacity="0"/></radialGradient>
+<linearGradient id="hair" x1="0" x2="1"><stop offset="0" stop-color="#8B8F96" stop-opacity=".45"/><stop offset="1" stop-color="#8B8F96" stop-opacity="0"/></linearGradient>
+</defs>
+<rect x="1" y="1" width="598" height="298" rx="16" fill="#050506" stroke="url(#edge)" stroke-width="1.5"/>
+<g class="full">
+<text x="36" y="52" class="m" font-size="12" fill="#5E636B" font-weight="700" letter-spacing="2.4" xml:space="preserve">LIVE</text>
+<text x="34" y="104" class="s" font-size="34" fill="#F2F3F5" font-weight="800" letter-spacing="-1.1" xml:space="preserve">Does it work</text>
+<text x="36" y="146" class="s" font-size="18" fill="#9A9FA7" xml:space="preserve">Real requests travel the map,</text>
+<text x="36" y="172" class="s" font-size="18" fill="#9A9FA7" xml:space="preserve">matched to the code that serves</text>
+<text x="36" y="198" class="s" font-size="18" fill="#9A9FA7" xml:space="preserve">them. Errors turn red.</text>
+<path class="flow" d="M410 100 C460 100 480 150 560 150" stroke="#2A2C31" fill="none" stroke-width="1.4"/><path class="flow" d="M410 200 C460 200 480 150 560 150" stroke="#2A2C31" fill="none" stroke-width="1.4"/><circle r="3.2" fill="#C9CDD3"><animateMotion dur="1.6s" begin="0.00s" repeatCount="indefinite" path="M410 100 C460 100 480 150 560 150"/></circle><circle r="3.2" fill="#C9CDD3"><animateMotion dur="1.6s" begin="0.80s" repeatCount="indefinite" path="M410 100 C460 100 480 150 560 150"/></circle><circle r="3.2" fill="#FF2A2A"><animateMotion dur="1.6s" begin="0.40s" repeatCount="indefinite" path="M410 200 C460 200 480 150 560 150"/></circle><circle cx="410" cy="100" r="5" fill="#0B0C0E" stroke="#4A4E55" stroke-width="1.5"/><circle cx="410" cy="200" r="5" fill="#0B0C0E" stroke="#4A4E55" stroke-width="1.5"/><circle cx="560" cy="150" r="6" fill="#0B0C0E" stroke="#C9CDD3" stroke-width="1.5"/><text x="404" y="236" class="m" font-size="11" fill="#9EA4AD" font-weight="700" letter-spacing="0.6" xml:space="preserve">200  41ms</text><text x="492" y="236" class="m" font-size="11" fill="#FF2A2A" font-weight="700" letter-spacing="0.6" xml:space="preserve">500</text>
+</g>
+<g class="compact"><text x="36" y="120" class="s" font-size="64" fill="#F2F3F5" font-weight="800" letter-spacing="-2" xml:space="preserve">Does it work</text></g>
+</svg>
